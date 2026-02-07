@@ -47,23 +47,8 @@ For details, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 
 ---
 
-### Quick Setup
 
-```bash
-git clone https://github.com/your-username/secure-agentic-browser.git
-cd secure-agentic-browser
-chmod +x setup.sh
-./setup.sh
-Configure API Key
-Edit .env:
-
-GEMINI_API_KEY=your-gemini-api-key-here
-Get a key from:
-👉 https://makersuite.google.com/app/apikey
-
-▶️ Running the Demo
-python src/main.py
-The demo runs three scenarios:
+### The demo runs three scenarios:
 
 Legitimate task – allowed safely
 
@@ -108,30 +93,20 @@ Latency per analysis layer
 Threat detection effectiveness
 
 Designed for high precision and low false positives.
+### Quick Setup
 
-🚧 Limitations & Future Work
-Planned extensions:
+```bash
+git clone https://github.com/your-username/secure-agentic-browser.git
+cd secure-agentic-browser
+chmod +x setup.sh
+./setup.sh
+Configure API Key
+Edit .env:
 
-Runtime behavioral monitoring
+GEMINI_API_KEY=your-gemini-api-key-here
+Get a key from:
+👉 https://makersuite.google.com/app/apikey
 
-Agent action anomaly detection
+▶️ Running the Demo
+python src/main.py
 
-Enterprise policy integration
-
-Continuous learning from incidents
-
-🏆 Use Cases
-Autonomous browsing agents
-
-AI copilots with web access
-
-Enterprise automation bots
-
-Research on AI safety & alignment
-
-📜 License
-MIT License
-
-🤝 Team & Acknowledgments
-Built for a security-focused hackathon project.
-Inspired by real-world WAF, EDR, and Zero-Trust security systems.
