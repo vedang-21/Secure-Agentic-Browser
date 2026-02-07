@@ -1,0 +1,38 @@
+[
+  {
+    "id": "malicious_001",
+    "html_file": "tests/malicious_pages/injection/prompt_injection_hidden.html",
+    "label": "malicious",
+    "attack_type": "prompt_injection",
+    "description": "Hidden div with system override instructions"
+  },
+  {
+    "id": "malicious_002",
+    "html_file": "tests/malicious_pages/phishing/fake_login_google.html",
+    "label": "malicious",
+    "attack_type": "phishing",
+    "description": "Fake Google login submitting to external server"
+  },
+  {
+    "id": "malicious_003",
+    "html_file": "tests/malicious_pages/ui_manipulation/clickjacking.html",
+    "label": "malicious",
+    "attack_type": "clickjacking",
+    "description": "Invisible overlay button"
+  },
+  {
+    "id": "benign_001",
+    "html_file": "tests/legitimate_pages/search_engine.html",
+    "label": "benign",
+    "attack_type": "none",
+    "description": "Simple search form"
+  },
+  {
+    "id": "benign_002",
+    "html_file": "tests/legitimate_pages/contact_form.html",
+    "label": "benign",
+    "attack_type": "none",
+    "description": "Contact form with email field"
+  }
+]
+ 
