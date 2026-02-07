@@ -54,6 +54,4 @@ class LLMThreatReasoner:
 
 ---
 
-### Pro Tip: Adding a "Copy" button
 
-You don't need to do anything extra! GitHub automatically adds a "Copy" icon to the top-right corner of any code block that uses the triple backtick syntax.
