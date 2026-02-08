@@ -34,7 +34,7 @@ The system follows a **multi-layer defense-in-depth model**:
 
 ➡️ Final decision: **ALLOW / WARN / CONFIRM / BLOCK**
 
-For details, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+For details, see [`docs/ARCHITECTURE.md`](ARCHITECTURE.md)
 
 ---
 
@@ -70,29 +70,29 @@ Action Taken:
 BLOCK
 “Success” means the agent stayed safe, not that the attack succeeded.
 
-🛡️ Security Design Principles
-Zero Trust – No page content is trusted by default
+## 🛡️ Security Design Principles
+- Zero Trust – No page content is trusted by default
 
-Defense in Depth – Multiple independent detection layers
+- Defense in Depth – Multiple independent detection layers
 
-Fail-Safe Defaults – Unsafe behavior is blocked
+- Fail-Safe Defaults – Unsafe behavior is blocked
 
-Explainability – Every decision is human-readable
+- Explainability – Every decision is human-readable
 
-No UI Dependency – Designed for headless agents
+- No UI Dependency – Designed for headless agents
 
-🧪 Evaluation & Metrics
+## 🧪 Evaluation & Metrics
 The framework tracks:
 
-Risk score accuracy
+- Risk score accuracy
 
-Decision confidence
+- Decision confidence
 
-Latency per analysis layer
+- Latency per analysis layer
 
-Threat detection effectiveness
+- Threat detection effectiveness
 
-Designed for high precision and low false positives.
+> Designed for high precision and low false positives.
 ### Quick Setup
 
 ```bash
