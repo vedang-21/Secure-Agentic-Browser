@@ -96,7 +96,7 @@ The framework tracks:
 ### Quick Setup
 
 ```bash
-git clone https://github.com/your-username/secure-agentic-browser.git
+git clone https://github.com/vedang-21/secure-agentic-browser.git
 cd secure-agentic-browser
 chmod +x setup.sh
 ./setup.sh
