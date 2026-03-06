@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            width: 350px;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .logo {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2563eb;
+            margin-bottom: 5px;
+        }
+        
+        .subtitle {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        
+        .task-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+        }
+        
+        .task-input:focus {
+            outline: none;
+            border-color: #2563eb;
+        }
+        
+        .execute-btn {
+            width: 100%;
+            padding: 12px;
+            background-color: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .execute-btn:hover {
+            background-color: #1d4ed8;
+        }
+        
+        .execute-btn:disabled {
+            background-color: #9ca3af;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            text-align: center;
+        }
+        
+        .status.success {
+            background-color: #dcfce7;
+            color: #16a34a;
+            border: 1px solid #bbf7d0;
+        }
+        
+        .status.error {
+            background-color: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+        
+        .status.loading {
+            background-color: #eff6ff;
+            color: #2563eb;
+            border: 1px solid #bfdbfe;
+        }
+        
+        .examples {
+            margin-top: 20px;
+        }
+        
+        .examples-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 8px;
+        }
+        
+        .example-task {
+            font-size: 11px;
+            color: #6b7280;
+            background-color: #f9fafb;
+            padding: 6px 8px;
+            border-radius: 4px;
+            margin-bottom: 4px;
+            cursor: pointer;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .example-task:hover {
+            background-color: #f3f4f6;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">🤖 Agentic Browser</div>
+        <div class="subtitle">AI-Powered Browser Automation</div>
+    </div>
+    
+    <textarea 
+        id="taskInput" 
+        class="task-input" 
+        placeholder="Enter your task... (e.g., Find best laptop under 60000)"
+        rows="3"
+    ></textarea>
+    
+    <button id="executeBtn" class="execute-btn">
+        Execute Task
+    </button>
+    
+    <div id="status" class="status" style="display: none;"></div>
+    
+    <div class="examples">
+        <div class="examples-title">Example Tasks:</div>
+        <div class="example-task" onclick="fillTask('Search for best restaurants in New York')">
+            Search for best restaurants in New York
+        </div>
+        <div class="example-task" onclick="fillTask('Find latest AI news on TechCrunch')">
+            Find latest AI news on TechCrunch
+        </div>
+        <div class="example-task" onclick="fillTask('Go to GitHub and search for Python projects')">
+            Go to GitHub and search for Python projects
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
