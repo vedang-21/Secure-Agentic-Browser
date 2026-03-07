@@ -9,15 +9,15 @@ class MultiFactorRiskCalculator:
     
     # Configurable weights for different factors
     WEIGHTS = {
-        'dom_analysis': 0.20,
-        'nlp_classification': 0.30,
-        'llm_reasoning': 0.35,
-        'behavioral_signals': 0.15,
+        'dom_analysis': 0.15,
+        'nlp_classification': 0.20,
+        'llm_reasoning': 0.55,
+        'behavioral_signals': 0.10,
     }
     
     # Risk thresholds
     THRESHOLDS = {
-        'block': 0.35,      # Block immediately
+        'block': 0.40,      # Block immediately
         'confirm': 0.25,    # Require human confirmation
         'warn': 0.15,       # Log warning but allow
         'allow': 0.0,       # Safe to proceed
@@ -116,8 +116,8 @@ class MultiFactorRiskCalculator:
         # Suspicious forms
         forms = dom_results.get('suspicious_forms', [])
         if forms:
-            high_risk_forms = [f for f in forms if f.get('risk_score', 0) > 0.6]
-            score += min(len(high_risk_forms) * 0.25, 0.5)
+            high_risk_forms = [f for f in forms if f.get('risk_score', 0) >= 0.5]
+            score += min(len(high_risk_forms) * 0.40, 0.6)
         
         # External iframes
         iframes = dom_results.get('iframe_analysis', [])

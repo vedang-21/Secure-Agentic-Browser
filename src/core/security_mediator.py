@@ -1,11 +1,11 @@
 import time
 from typing import Dict, Optional
-from analyzers.dom_analyzer import DOMAnalyzer
-from analyzers.nlp_classifier import NLPThreatClassifier
-from analyzers.llm_reasoner import LLMThreatReasoner
-from policies.risk_calculator import MultiFactorRiskCalculator
-from utils.performance_monitor import PerformanceMonitor
-from utils.explanation_generator import ExplanationGenerator
+from src.analyzers.dom_analyzer import DOMAnalyzer
+from src.analyzers.nlp_classifier import NLPThreatClassifier
+from src.analyzers.llm_reasoner import LLMThreatReasoner
+from src.policies.risk_calculator import MultiFactorRiskCalculator
+from src.utils.performance_monitor import PerformanceMonitor
+from src.utils.explanation_generator import ExplanationGenerator
 
 
 class SecurityMediator:
@@ -19,7 +19,7 @@ class SecurityMediator:
         self.dom_analyzer = DOMAnalyzer()
         self.nlp_classifier = NLPThreatClassifier()
 
-        # 🔁 Anthropic → Gemini (NO logic change)
+        #  Anthropic → Gemini (NO logic change)
         self.llm_reasoner = LLMThreatReasoner(
             config.get('gemini_api_key')
         )
@@ -167,7 +167,9 @@ class SecurityMediator:
 
         if dom.get('suspicious_forms'):
             score += 0.3
-
+        # Ensure dom score always triggers Gemini if significant
+        if score < 0.15 and dom.get('suspicious_forms'):
+            score = 0.45
         return min(score, 1.0)
 
     def _count_layers_used(self, llm_results) -> int:

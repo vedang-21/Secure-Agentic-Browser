@@ -8,9 +8,11 @@ from pathlib import Path
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import Dict
+from dotenv import load_dotenv
 import uuid
 from datetime import datetime
 
+load_dotenv()
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -26,9 +28,15 @@ def load_config():
     if config_path.exists():
         with open(config_path, 'r') as f:
             return yaml.safe_load(f)
+        # Replace ${VAR} placeholders with actual env values
+        api_key = config.get('gemini_api_key', '')
+        if api_key.startswith('${') and api_key.endswith('}'):
+            var_name = api_key[2:-1]
+            config['gemini_api_key'] = os.getenv(var_name, '')
+        return config
     else:
         return {
-            'gemini_api_key': os.getenv('GEMINI_API_KEY', ''),
+            'gemini_api_key': os.getenv('GOOGLE_API_KEY', ''),
             'use_llm_layer': True,
             'llm_threshold': 0.4,
             'headless': False
