@@ -406,38 +406,78 @@ class FirewallClient:
         
     
     async def _validate_with_external_api(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Send comprehensive payload to external firewall API."""
+        """
+        Send payload to external firewall API running on localhost.
+        Expected format matches your external firewall specification.
+        """
         try:
+            # Ensure payload matches expected external firewall format
+            external_payload = {
+                "action": payload.get('action', {}),
+                "page_context": payload.get('page_context', {}),
+                "timestamp": payload.get('timestamp'),
+                "agent_id": payload.get('agent_id'),
+                "source": payload.get('source')
+            }
+            
             # Add authentication headers
             headers = {
                 "Content-Type": "application/json",
-                "User-Agent": "SecureAgenticBrowser/1.0"
+                "User-Agent": "SecureAgenticBrowser/1.0",
+                "X-Agent-Version": "1.0.0"
             }
             
-            if os.getenv('FIREWALL_API_KEY'):
-                headers["Authorization"] = f"Bearer {os.getenv('FIREWALL_API_KEY')}"
+            # Add API key if configured
+            firewall_api_key = os.getenv('FIREWALL_API_KEY')
+            if firewall_api_key:
+                headers["Authorization"] = f"Bearer {firewall_api_key}"
+            
+            logger.info(f"🔗 Calling external firewall API: {self.firewall_url}")
+            logger.debug(f"📤 Payload size: {len(str(external_payload))} characters")
             
             response = await self.client.post(
                 self.firewall_url,
-                json=payload,
+                json=external_payload,
                 headers=headers
             )
             
             if response.status_code == 200:
                 result = response.json()
-                return {
+                
+                # Parse external firewall response format
+                external_response = {
                     'allowed': result.get('allowed', False),
                     'reason': result.get('reason', 'External firewall decision'),
                     'source': 'external',
                     'confidence': result.get('confidence', 0.5),
-                    'risk_factors': result.get('risk_factors', [])
+                    'risk_factors': result.get('risk_factors', []),
+                    'risk_level': result.get('risk_level', 'unknown'),
+                    'analysis': result.get('analysis', {}),
+                    'timestamp': result.get('timestamp'),
+                    'processing_time_ms': result.get('processing_time_ms', 0)
                 }
+                
+                logger.info(f"✅ External firewall response: {external_response['allowed']} ({external_response.get('confidence', 0):.2f} confidence)")
+                return external_response
+                
+            elif response.status_code == 400:
+                logger.error(f"❌ External firewall bad request: {response.text}")
+                return None
+            elif response.status_code == 401:
+                logger.error(f"🔐 External firewall authentication failed")
+                return None
             else:
-                logger.warning(f"External firewall API error: {response.status_code}")
+                logger.warning(f"⚠️ External firewall API error: {response.status_code} - {response.text}")
                 return None
                 
+        except httpx.TimeoutException:
+            logger.warning(f"⏰ External firewall API timeout")
+            return None
+        except httpx.ConnectError:
+            logger.warning(f"🔌 Cannot connect to external firewall at {self.firewall_url}")
+            return None
         except Exception as e:
-            logger.warning(f"External firewall API failed: {str(e)}")
+            logger.warning(f"❌ External firewall API failed: {str(e)}")
             return None
     
     async def report_action_result(self, action: Dict[str, Any], result: Dict[str, Any], page_context: Dict[str, Any] = None) -> None:
