@@ -62,11 +62,11 @@ check_pip() {
 # Install requirements
 install_requirements() {
     echo "📚 Installing Python requirements..."
-    if [ -f "requirements.txt" ]; then
-        python3 -m pip install -r requirements.txt
+    if [ -f "config/requirements.txt" ]; then
+        python3 -m pip install -r config/requirements.txt
         print_success "Python requirements installed"
     else
-        print_warning "requirements.txt not found, installing basic packages..."
+        print_warning "config/requirements.txt not found, installing basic packages..."
         python3 -m pip install fastapi uvicorn playwright google-generativeai httpx pydantic requests
     fi
 }
@@ -237,7 +237,7 @@ check_status() {
     # Check key files
     echo "📁 Checking key files..."
     
-    key_files=("main.py" "src/agent/agent_controller.py" "src/agent/firewall_client.py" "requirements.txt")
+    key_files=("main.py" "src/agent/agent_controller.py" "src/agent/firewall_client.py" "config/requirements.txt")
     for file in "${key_files[@]}"; do
         if [ -f "$file" ]; then
             print_success "$file exists"

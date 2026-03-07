@@ -31,13 +31,13 @@ A sophisticated Python AI agent system that provides secure, autonomous browser 
 │   ├── interactive_demo.py         # Interactive demonstration
 │   ├── diagnose_browser.py         # Browser diagnostics
 │   └── example_browser_executor.py # Usage examples
-├── 🔧 Configuration Files
-│   ├── .env                        # Environment variables (secure)
-│   ├── .env.template              # Environment template
+├── � config/
+│   ├── .env.template              # Environment template  
 │   ├── requirements.txt           # Python dependencies
-│   └── setup_and_test.sh         # Comprehensive setup script
-├── 📚 Documentation
+│   └── setup_config.py           # Configuration setup script
+├── 📚 docs/
 │   ├── ENVIRONMENT_SETUP.md       # Environment setup guide
+│   ├── FIREWALL_INTEGRATION.md    # External firewall integration
 │   └── QUICKSTART.md             # Quick start guide
 └── main.py                        # FastAPI server entry point
 ```
