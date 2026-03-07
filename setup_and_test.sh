@@ -82,23 +82,23 @@ install_playwright() {
 check_env_vars() {
     echo "🔑 Checking environment variables..."
     
-    if [ -z "$GEMINI_API_KEY" ]; then
-        print_error "GEMINI_API_KEY is not set"
-        print_info "Set it with: export GEMINI_API_KEY='your_actual_api_key'"
+    if [ -z "$GOOGLE_API_KEY" ]; then
+        print_error "GOOGLE_API_KEY is not set"
+        print_info "Set it with: export GOOGLE_API_KEY='your_actual_api_key'"
         
         echo "Would you like to set it now? (y/n)"
         read -r response
         if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
             echo "Enter your Gemini API key:"
             read -r api_key
-            export GEMINI_API_KEY="$api_key"
+            export GOOGLE_API_KEY="$api_key"
             print_success "API key set for this session"
-            print_info "Add 'export GEMINI_API_KEY=\"$api_key\"' to your ~/.bashrc or ~/.zshrc"
+            print_info "Add 'export GOOGLE_API_KEY=\"$api_key\"' to your ~/.bashrc or ~/.zshrc"
         else
             print_warning "Continuing without API key (some features may not work)"
         fi
     else
-        print_success "GEMINI_API_KEY is set"
+        print_success "GOOGLE_API_KEY is set"
     fi
 }
 
@@ -163,19 +163,13 @@ stop_server() {
 run_tests() {
     echo "🧪 Running test suite..."
     
-    if [ -f "quick_test.py" ]; then
-        python3 quick_test.py
+    if [ -f "tests/quick_test.py" ]; then
+        python tests/quick_test.py
+    elif [ -f "run_tests.py" ]; then
+        python run_tests.py
     else
-        print_error "quick_test.py not found"
-        print_info "Running basic server test..."
-        
-        if command -v curl &> /dev/null; then
-            if curl -s http://localhost:8001/ > /dev/null; then
-                print_success "Server health check passed"
-            else
-                print_error "Server health check failed"
-            fi
-        fi
+        print_error "No test files found"
+        print_info "Check if tests directory exists and has test files"
     fi
 }
 
@@ -183,10 +177,10 @@ run_tests() {
 run_demo() {
     echo "🎮 Running interactive demo..."
     
-    if [ -f "interactive_demo.py" ]; then
-        python3 interactive_demo.py
+    if [ -f "tests/interactive_demo.py" ]; then
+        python tests/interactive_demo.py
     else
-        print_error "interactive_demo.py not found"
+        print_error "tests/interactive_demo.py not found"
     fi
 }
 

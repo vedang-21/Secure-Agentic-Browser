@@ -21,9 +21,9 @@ async def demo_adaptive_agent():
     """Demonstrate the enhanced agent loop with page content adaptation."""
     
     # Check if Gemini API key is set
-    if not os.getenv("GEMINI_API_KEY"):
-        print("❌ Please set GEMINI_API_KEY environment variable")
-        print("   export GEMINI_API_KEY='your_gemini_api_key'")
+    if not os.getenv("GOOGLE_API_KEY"):
+        print("❌ Please set GOOGLE_API_KEY environment variable")
+        print("   export GOOGLE_API_KEY='your_gemini_api_key'")
         return
     
     print("\n" + "=" * 100)

@@ -21,8 +21,8 @@ class BrowserExecutor:
         try:
             self.playwright = await async_playwright().start()
             self.browser = await self.playwright.chromium.launch(
-                headless=False,  # Set to True for production
-                args=['--no-sandbox', '--disable-dev-shm-usage']
+                headless=True,  # Set to True for production
+                
             )
             self.context = await self.browser.new_context(
                 viewport={'width': 1280, 'height': 720},

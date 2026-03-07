@@ -1,0 +1,180 @@
+# Secure Agentic Browser - Git Ignore File
+# This prevents sensitive data and temporary files from being committed
+
+# =============================================================================
+# ENVIRONMENT & SECRETS
+# =============================================================================
+.env
+.env.local
+.env.production
+.env.staging
+*.key
+*.pem
+config/secrets.json
+
+# =============================================================================
+# API KEYS & CREDENTIALS
+# =============================================================================
+*api_key*
+*secret*
+*token*
+credentials.json
+auth.json
+
+# =============================================================================
+# PYTHON SPECIFIC
+# =============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# =============================================================================
+# VIRTUAL ENVIRONMENTS
+# =============================================================================
+venv/
+env/
+ENV/
+.venv/
+.ENV/
+pip-selfcheck.json
+
+# =============================================================================
+# IDE & EDITORS
+# =============================================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# =============================================================================
+# LOGS & DEBUGGING
+# =============================================================================
+*.log
+logs/
+agent_execution.log
+debug.log
+error.log
+trace.log
+
+# =============================================================================
+# BROWSER & PLAYWRIGHT
+# =============================================================================
+# Playwright browsers (can be large)
+# Uncomment if you want to ignore browser binaries
+# .playwright/
+
+# Browser data
+browser_data/
+user_data/
+screenshots/
+downloads/
+temp_browser/
+
+# =============================================================================
+# PROCESS & RUNTIME FILES
+# =============================================================================
+*.pid
+server.pid
+agent.pid
+.lock
+.tmp
+
+# =============================================================================
+# DATABASE & CACHE
+# =============================================================================
+*.db
+*.sqlite
+*.sqlite3
+cache/
+.cache/
+redis.conf
+
+# =============================================================================
+# TESTING & COVERAGE
+# =============================================================================
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# =============================================================================
+# DOCUMENTATION
+# =============================================================================
+docs/_build/
+site/
+
+# =============================================================================
+# NODE.JS (for browser extension)
+# =============================================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# =============================================================================
+# SYSTEM FILES
+# =============================================================================
+*.tmp
+*.temp
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# =============================================================================
+# BACKUP & TEMPORARY FILES
+# =============================================================================
+*.bak
+*.backup
+*.old
+*.orig
+*.save
+*~
+.#*
+
+# =============================================================================
+# PROJECT SPECIFIC
+# =============================================================================
+# Agent execution artifacts
+task_results/
+execution_history/
+page_captures/
+agent_state/
+
+# Firewall logs and data
+firewall_logs/
+security_reports/
+
+# Custom configurations
+local_config.json
+user_preferences.json

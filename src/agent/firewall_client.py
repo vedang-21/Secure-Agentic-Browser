@@ -5,6 +5,14 @@ from typing import Dict, Any, List, Optional
 import json
 from datetime import datetime
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # dotenv not installed, use system environment variables
+    pass
+
 logger = logging.getLogger(__name__)
 
 class FirewallClient:
@@ -290,14 +298,17 @@ class FirewallClient:
         html_content = page_context.get('html_content', '').lower()
         for pattern in self.security_rules["suspicious_html_patterns"]:
             if pattern in html_content:
-                risk_factors.append(f'suspicious_html_{pattern.split("(")[0].replace("\"", "")}')
+                # Fix f-string backslash issue by using variables
+                pattern_name = pattern.split("(")[0].replace('"', '')
+                risk_factors.append(f'suspicious_html_{pattern_name}')
         
         # JavaScript analysis
         if page_context.get('javascript_present', False):
             dangerous_js_patterns = ['eval(', 'document.write', 'innerHTML =', 'outerhtml =']
             for pattern in dangerous_js_patterns:
                 if pattern in html_content:
-                    risk_factors.append(f'dangerous_javascript_{pattern.split("(")[0]}')
+                    pattern_name = pattern.split("(")[0]
+                    risk_factors.append(f'dangerous_javascript_{pattern_name}')
         
         # Form analysis
         forms = page_context.get('forms', [])

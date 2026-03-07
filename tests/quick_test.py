@@ -16,13 +16,13 @@ def check_prerequisites():
     print("🔍 Checking prerequisites...")
     
     # Check if Gemini API key is set
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
-        print("❌ GEMINI_API_KEY not found in environment")
-        print("💡 Set it with: export GEMINI_API_KEY='your_actual_api_key'")
+        print("❌ GOOGLE_API_KEY not found in environment")
+        print("💡 Set it with: export GOOGLE_API_KEY='your_actual_api_key'")
         return False
     else:
-        print(f"✅ GEMINI_API_KEY found (ends with: ...{api_key[-8:]})")
+        print(f"✅ GOOGLE_API_KEY found (ends with: ...{api_key[-8:]})")
     
     # Check if server is running
     try:
@@ -294,7 +294,7 @@ if __name__ == "__main__":
         print("   • Load the browser extension for manual testing")
     else:
         print("\n🔧 Troubleshooting:")
-        print("   • Make sure GEMINI_API_KEY is set")
+        print("   • Make sure GOOGLE_API_KEY is set")
         print("   • Ensure server is running: python main.py")
         print("   • Check if playwright is installed: playwright install")
         print("   • Review logs for detailed error information")

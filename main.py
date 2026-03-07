@@ -1,6 +1,15 @@
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # dotenv not installed, use system environment variables
+    pass
+
 from src.api.agent_routes import router as agent_router
 
 app = FastAPI(
