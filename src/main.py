@@ -1,4 +1,3 @@
-
 """
 Secure Agentic Browser - Main Entry Point
 """
@@ -6,9 +5,9 @@ Secure Agentic Browser - Main Entry Point
 import sys
 import os
 from pathlib import Path
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel
-from typing import Optional, Dict
+from typing import Dict
 import uuid
 from datetime import datetime
 
@@ -17,7 +16,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from src.core.agent import AgenticBrowser
 from src.core.security_mediator import SecurityMediator
-from src.utils.metrics_collector import MetricsCollector
 import yaml
 
 
@@ -37,6 +35,8 @@ def load_config():
         }
 
 
+# ─── Pydantic Models ────────────────────────────────────────────────────────
+
 class AgentContext(BaseModel):
     task: str = ""
     sensitive_data_present: bool = False
@@ -49,18 +49,6 @@ class AnalyzeRequest(BaseModel):
     raw_html: str
     agent_context: AgentContext = AgentContext()
     timestamp: str = ""
-
-
-app = FastAPI(title="Secure Agentic Browser API")
-config = None
-security_mediator = None
-
-
-@app.on_event("startup")
-async def startup():
-    global security_mediator, config
-    config = load_config()
-    security_mediator = SecurityMediator(config)
 
 
 class ActionDetail(BaseModel):
@@ -90,10 +78,43 @@ class ValidateActionRequest(BaseModel):
     firewall_result: FirewallResult = FirewallResult()
 
 
+# ─── App Initialization ─────────────────────────────────────────────────────
+
+app = FastAPI(title="Secure Agentic Browser API")
+config = None
+security_mediator = None
+
+
+@app.on_event("startup")
+async def startup():
+    global security_mediator, config
+    config = load_config()
+    security_mediator = SecurityMediator(config)
+
+
+# ─── Endpoints ──────────────────────────────────────────────────────────────
+
+@app.get("/health")
+def health():
+    return {
+        "status": "ok",
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "api_version": "1.0.0",
+        "endpoints": [
+            "/health",
+            "/analyze",
+            "/validate_action",
+            "/metrics",
+            "/agent_execute"
+        ]
+    }
+
+
 @app.post("/analyze")
 def analyze(request: AnalyzeRequest):
     request_id = request.request_id or str(uuid.uuid4())
     try:
+        # Validate input
         if not request.raw_html or not request.raw_html.strip():
             return {
                 "request_id": request_id,
@@ -112,6 +133,7 @@ def analyze(request: AnalyzeRequest):
                 }
             }
 
+        # Run security pipeline
         result = security_mediator.analyze_page(
             page_content=request.raw_html,
             agent_goal=request.agent_context.task
@@ -121,6 +143,7 @@ def analyze(request: AnalyzeRequest):
         confidence = float(result.get("confidence", 0.0) or 0.0)
         decision = result.get("action", "BLOCK")
 
+        # Zone mapping
         if risk_score >= 0.70:
             zone = "danger"
         elif risk_score >= 0.40:
@@ -128,6 +151,7 @@ def analyze(request: AnalyzeRequest):
         else:
             zone = "safe"
 
+        # Extract analysis layers
         detailed_analysis = result.get("detailed_analysis", {}) or {}
         dom_analysis = detailed_analysis.get("dom", {}) or {}
         nlp_analysis = detailed_analysis.get("nlp", {}) or {}
@@ -136,6 +160,7 @@ def analyze(request: AnalyzeRequest):
         performance = result.get("performance", {}) or {}
         component_scores = risk_breakdown.get("component_scores", {})
 
+        # Extract threats
         threats = []
         for source_key, source_data in [
             ("dom", dom_analysis),
@@ -164,7 +189,7 @@ def analyze(request: AnalyzeRequest):
                             "description": str(t)
                         })
 
-        response: Dict = {
+        return {
             "request_id": request_id,
             "decision": decision,
             "risk_score": risk_score,
@@ -180,13 +205,12 @@ def analyze(request: AnalyzeRequest):
             "metadata": {
                 "analysis_time_ms": int(performance.get("latency_ms", 0) or 0),
                 "dom_elements_scanned": int(dom_analysis.get("elements_scanned", dom_analysis.get("dom_elements_scanned", 0)) or 0),
-                "gemini_reasoning": llm_analysis.get("reasoning"),
+                "gemini_reasoning": llm_analysis.get("reasoning") if isinstance(llm_analysis, dict) else None,
                 "timestamp": datetime.utcnow().isoformat() + "Z",
                 "error": None
             }
         }
 
-        return response
     except Exception as exception:
         return {
             "request_id": request_id,
@@ -210,31 +234,42 @@ def analyze(request: AnalyzeRequest):
 def validate_action(request: ValidateActionRequest):
     request_id = request.request_id or str(uuid.uuid4())
     try:
+        # Redact sensitive data FIRST before anything else
         action_text = request.action.text
         if request.action.sensitivity in ["critical", "high"]:
             action_text = "[REDACTED]"
 
         start_time = datetime.utcnow()
 
+        # Decision matrix — checked in exact priority order
         if not request.firewall_result.allowed:
             decision = "BLOCK"
             reason = "Firewall blocked this action"
+
         elif request.page_context.risk_score >= 0.70:
             decision = "BLOCK"
             reason = "Page risk score in danger zone"
+
         elif (request.action.sensitivity == "critical"
               and request.firewall_result.confidence < 0.85):
             decision = "BLOCK"
             reason = "Critical action requires confidence >= 0.85"
+
         elif (request.action.sensitivity == "high"
               and request.firewall_result.confidence < 0.70):
             decision = "BLOCK"
             reason = "High sensitivity action requires confidence >= 0.70"
+
         else:
+            # Pass redacted context to mediator — never raw credentials
+            safe_action_context = request.page_context.dict()
+            safe_action_context["action_text"] = action_text
+
             mediator_result = security_mediator.validate_action(
                 action=request.action.type,
-                page_context=request.page_context.dict()
+                page_context=safe_action_context
             )
+
             if mediator_result.get('is_safe', False):
                 decision = "ALLOW"
                 reason = mediator_result.get('recommendation', 'Action approved')
@@ -242,11 +277,13 @@ def validate_action(request: ValidateActionRequest):
                 decision = "BLOCK"
                 reason = mediator_result.get('recommendation', 'Action blocked')
 
+        # Detect conflict between firewall and risk score
         conflict = (
             request.firewall_result.allowed is True
             and request.page_context.risk_score >= 0.50
         )
 
+        # Classify action type
         credential_types = ["password", "credential", "token", "key", "secret"]
         is_credential = any(
             word in request.action.selector.lower()
@@ -262,7 +299,6 @@ def validate_action(request: ValidateActionRequest):
             (datetime.utcnow() - start_time).total_seconds() * 1000
         )
 
-        _ = action_text
         return {
             "request_id": request_id,
             "decision": decision,
@@ -287,6 +323,7 @@ def validate_action(request: ValidateActionRequest):
                 "error": None
             }
         }
+
     except Exception as exception:
         return {
             "request_id": request_id,
@@ -305,6 +342,60 @@ def validate_action(request: ValidateActionRequest):
         }
 
 
+@app.get("/metrics")
+def metrics():
+    try:
+        raw = security_mediator.get_metrics()
+
+        total = raw.get('total_pages_analyzed', 0)
+
+        threat_rate = (
+            raw['threats_detected'] / total
+            if total > 0 else 0.0
+        )
+
+        block_rate = (
+            raw['actions_blocked'] / total
+            if total > 0 else 0.0
+        )
+
+        avg_latency = raw.get('average_latency_ms', 0.0)
+        if avg_latency < 500:
+            health_status = "healthy"
+        elif avg_latency < 1000:
+            health_status = "degraded"
+        else:
+            health_status = "critical"
+
+        return {
+            "total_pages_analyzed": total,
+            "threats_detected": raw.get('threats_detected', 0),
+            "actions_blocked": raw.get('actions_blocked', 0),
+            "false_positives": raw.get('false_positives', 0),
+            "average_latency_ms": round(avg_latency, 2),
+            "threat_detection_rate": round(threat_rate, 4),
+            "block_rate": round(block_rate, 4),
+            "system_health": health_status,
+            "timestamp": datetime.utcnow().isoformat() + "Z"
+        }
+
+    except Exception as exception:
+        return {
+            "total_pages_analyzed": 0,
+            "threats_detected": 0,
+            "actions_blocked": 0,
+            "false_positives": 0,
+            "average_latency_ms": 0.0,
+            "threat_detection_rate": 0.0,
+            "block_rate": 0.0,
+            "system_health": "critical",
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "error": str(exception)
+        }
+
+
+# ─── Demo Functions ──────────────────────────────────────────────────────────
+
 def demo_legitimate_task():
     """Demo: Agent successfully completes a legitimate task"""
     print("\n" + "=" * 80)
@@ -317,7 +408,6 @@ def demo_legitimate_task():
 
     agent.launch(headless=config.get('headless', False))
 
-    # Legitimate HTML page
     test_page = """
     <!DOCTYPE html>
     <html>
@@ -331,7 +421,6 @@ def demo_legitimate_task():
     </body>
     </html>
     """
-
 
     agent.page.goto("about:blank: Legitimate Task")
     agent.page.set_content(test_page)
@@ -360,7 +449,6 @@ def demo_prompt_injection_attack():
 
     agent.launch(headless=config.get('headless', False))
 
-    # Malicious page with hidden prompt injection
     attack_page = """
     <!DOCTYPE html>
     <html>
@@ -384,7 +472,6 @@ def demo_prompt_injection_attack():
     </html>
     """
 
-   
     agent.page.goto("about:blank: Injected with hidden prompt injection")
     agent.page.set_content(attack_page)
 
@@ -438,7 +525,6 @@ def demo_phishing_attack():
     </html>
     """
 
-  
     agent.page.goto("about:blank: Phishing Page")
     agent.page.set_content(phishing_page)
 
@@ -459,7 +545,6 @@ def main():
     print("\n SECURE AGENTIC BROWSER DEMONSTRATION")
     print("=" * 80)
 
-    # Check API key
     if not os.getenv('GEMINI_API_KEY'):
         print("❌ ERROR: GEMINI_API_KEY environment variable not set")
         print("Set it in PowerShell using:")
@@ -481,7 +566,6 @@ def main():
             print(f"Demo {i}:  SAFE COMPLETION | Unsafe actions prevented")
         else:
             print(f"Demo {i}:  ERROR | Review execution")
-
 
 
 if __name__ == '__main__':

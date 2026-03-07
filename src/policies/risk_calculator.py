@@ -17,9 +17,9 @@ class MultiFactorRiskCalculator:
     
     # Risk thresholds
     THRESHOLDS = {
-        'block': 0.50,      # Block immediately
-        'confirm': 0.35,    # Require human confirmation
-        'warn': 0.20,       # Log warning but allow
+        'block': 0.35,      # Block immediately
+        'confirm': 0.25,    # Require human confirmation
+        'warn': 0.15,       # Log warning but allow
         'allow': 0.0,       # Safe to proceed
     }
     
