@@ -24,7 +24,7 @@ chmod +x setup_and_test.sh
 ### Method 2: Manual Setup
 ```bash
 # 1. Set your API key
-export GEMINI_API_KEY="your_actual_gemini_api_key_here"
+export GOOGLE_API_KEY="your_actual_gemini_api_key_here"
 
 # 2. Install dependencies
 pip install -r requirements.txt
@@ -132,7 +132,7 @@ Test the system using a browser extension:
 
 | Problem | Solution |
 |---------|----------|
-| `GEMINI_API_KEY not found` | Set API key: `export GEMINI_API_KEY="your_key"` |
+| `GOOGLE_API_KEY not found` | Set API key: `export GOOGLE_API_KEY="your_key"` |
 | `Browser executable not found` | Run: `playwright install` |
 | `Port 8001 already in use` | Kill existing process or change port in main.py |
 | `Module not found` | Install requirements: `pip install -r requirements.txt` |

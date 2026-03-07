@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 from enum import Enum
 from .llm_planner import LLMPlanner
-from .action_executor import BrowserExecutor
+from .system_chrome_executor import SystemChromeBrowserExecutor as BrowserExecutor
 from .firewall_client import FirewallClient
 
 # Configure agent-specific logger

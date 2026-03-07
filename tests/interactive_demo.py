@@ -6,7 +6,12 @@ This provides a hands-on demonstration of the system capabilities.
 
 import asyncio
 import os
+import sys
 import uuid
+
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from src.agent.agent_controller import AgentController, AgentTask
 
 class InteractiveDemo:
@@ -49,10 +54,19 @@ class InteractiveDemo:
         """Check if the system is properly set up."""
         print("🔍 Checking system setup...")
         
+        # Load environment variables from .env file
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+        except ImportError:
+            # dotenv not installed, use system environment variables
+            pass
+        
         # Check API key
-        if not os.getenv("GEMINI_API_KEY"):
-            print("❌ GEMINI_API_KEY not found")
-            print("💡 Set it with: export GEMINI_API_KEY='your_key'")
+        if not os.getenv("GOOGLE_API_KEY"):
+            print("❌ GOOGLE_API_KEY not found")
+            print("💡 Set it with: export GOOGLE_API_KEY='your_key'")
+            print("💡 Or add it to .env file: GOOGLE_API_KEY=your_key")
             return False
         
         print("✅ Environment setup looks good!")
@@ -105,12 +119,17 @@ class InteractiveDemo:
         
         task = AgentTask(
             task_id=str(uuid.uuid4()),
-            user_request=f"Go to Google and search for '{search_query}', then extract the first few search results",
-            max_steps=8
+            user_request=f"Go to Google, search for '{search_query}', wait for results to load, then extract the search result titles and links",
+            max_steps=10
         )
         
         print(f"\n📋 Task: {task.user_request}")
         print("🚀 Starting execution...")
+        print("💡 The agent will:")
+        print("   1. Navigate to Google")
+        print("   2. Type in the search box") 
+        print("   3. Submit the search")
+        print("   4. Extract search results")
         
         result = await self.agent_controller.execute_task(task)
         self.show_result_summary(result)
