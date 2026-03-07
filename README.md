@@ -210,6 +210,85 @@ STRICT_MODE=true
 - Customize security rules and risk factors
 - Enable/disable strict mode for different security levels
 
+### External Firewall Integration
+
+The system supports seamless integration with external firewall APIs:
+
+#### **Current Setup (Local Firewall)**
+```env
+USE_EXTERNAL_FIREWALL=false
+```
+- Uses built-in security rules for immediate protection
+- Validates against dangerous URLs, sensitive fields, and suspicious patterns
+- Always active as the first line of defense
+
+#### **Future Setup (External Firewall)**
+When your team's firewall API is ready on localhost:
+```env
+USE_EXTERNAL_FIREWALL=true
+FIREWALL_API_URL=http://localhost:3001/api/validate
+FIREWALL_API_KEY=your_firewall_api_key
+```
+
+#### **External Firewall API Specification**
+
+**Input Format (what your firewall receives):**
+```json
+{
+  "action": {
+    "action": "type",
+    "selector": "input[name='password']",
+    "text": "mypassword"
+  },
+  "page_context": {
+    "url": "https://example.com/login",
+    "title": "Login Page",
+    "html_content": "<html>...</html>",
+    "visible_text": "Login to your account...",
+    "javascript_present": true,
+    "forms": [{"action": "/login", "method": "post", "https": true}],
+    "inputs": [{"type": "password", "name": "password", "selector": "input[name='password']"}],
+    "links": [...],
+    "meta_data": {...},
+    "security_headers": {...},
+    "cookies": [...],
+    "page_size": 45000
+  }
+}
+```
+
+**Expected Response Format:**
+```json
+{
+  "allowed": true,
+  "reason": "Action passed all security checks", 
+  "source": "external",
+  "confidence": 0.95,
+  "risk_factors": ["https_secure_connection", "trusted_domain"],
+  "risk_level": "low",
+  "analysis": {
+    "domain_reputation": "good",
+    "ssl_check": "valid",
+    "content_safety": "clean", 
+    "form_analysis": "secure"
+  },
+  "timestamp": "2024-03-06T10:30:45Z",
+  "processing_time_ms": 250
+}
+```
+
+#### **Testing External Firewall**
+```bash
+# Start mock firewall server (for testing)
+python tests/mock_external_firewall.py
+
+# Test integration
+python tests/test_external_firewall.py
+
+# Run with external firewall enabled
+USE_EXTERNAL_FIREWALL=true python main.py
+```
+
 ## 🛠️ Development
 
 The system is designed to be modular and extensible:
