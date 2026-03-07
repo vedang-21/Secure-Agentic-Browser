@@ -6,13 +6,18 @@ Secure Agentic Browser - Main Entry Point
 import sys
 import os
 from pathlib import Path
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import Optional, Dict
+import uuid
+from datetime import datetime
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from core.agent import AgenticBrowser
-from core.security_mediator import SecurityMediator
-from utils.metrics_collector import MetricsCollector
+from src.core.agent import AgenticBrowser
+from src.core.security_mediator import SecurityMediator
+from src.utils.metrics_collector import MetricsCollector
 import yaml
 
 
@@ -29,6 +34,274 @@ def load_config():
             'use_llm_layer': True,
             'llm_threshold': 0.4,
             'headless': False
+        }
+
+
+class AgentContext(BaseModel):
+    task: str = ""
+    sensitive_data_present: bool = False
+    session_id: str = ""
+
+
+class AnalyzeRequest(BaseModel):
+    request_id: str = ""
+    url: str
+    raw_html: str
+    agent_context: AgentContext = AgentContext()
+    timestamp: str = ""
+
+
+app = FastAPI(title="Secure Agentic Browser API")
+config = None
+security_mediator = None
+
+
+@app.on_event("startup")
+async def startup():
+    global security_mediator, config
+    config = load_config()
+    security_mediator = SecurityMediator(config)
+
+
+class ActionDetail(BaseModel):
+    type: str
+    selector: str = ""
+    text: str = ""
+    sensitivity: str = "low"
+
+
+class PageContext(BaseModel):
+    url: str = ""
+    risk_score: float = 0.0
+    visible_text: str = ""
+
+
+class FirewallResult(BaseModel):
+    allowed: bool = True
+    confidence: float = 1.0
+    risk_level: str = "low"
+    risk_factors: list = []
+
+
+class ValidateActionRequest(BaseModel):
+    request_id: str = ""
+    action: ActionDetail
+    page_context: PageContext
+    firewall_result: FirewallResult = FirewallResult()
+
+
+@app.post("/analyze")
+def analyze(request: AnalyzeRequest):
+    request_id = request.request_id or str(uuid.uuid4())
+    try:
+        if not request.raw_html or not request.raw_html.strip():
+            return {
+                "request_id": request_id,
+                "decision": "BLOCK",
+                "risk_score": 1.0,
+                "zone": "danger",
+                "confidence": 1.0,
+                "threats": [],
+                "layer_scores": {},
+                "metadata": {
+                    "analysis_time_ms": 0,
+                    "dom_elements_scanned": 0,
+                    "gemini_reasoning": None,
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "error": "Empty HTML provided"
+                }
+            }
+
+        result = security_mediator.analyze_page(
+            page_content=request.raw_html,
+            agent_goal=request.agent_context.task
+        )
+
+        risk_score = float(result.get("risk_score", 0.0) or 0.0)
+        confidence = float(result.get("confidence", 0.0) or 0.0)
+        decision = result.get("action", "BLOCK")
+
+        if risk_score >= 0.70:
+            zone = "danger"
+        elif risk_score >= 0.40:
+            zone = "fuzzy"
+        else:
+            zone = "safe"
+
+        detailed_analysis = result.get("detailed_analysis", {}) or {}
+        dom_analysis = detailed_analysis.get("dom", {}) or {}
+        nlp_analysis = detailed_analysis.get("nlp", {}) or {}
+        llm_analysis = detailed_analysis.get("llm", {}) or {}
+        risk_breakdown = detailed_analysis.get("risk_breakdown", {}) or {}
+        performance = result.get("performance", {}) or {}
+        component_scores = risk_breakdown.get("component_scores", {})
+
+        threats = []
+        for source_key, source_data in [
+            ("dom", dom_analysis),
+            ("nlp", nlp_analysis),
+            ("llm", llm_analysis),
+        ]:
+            if not isinstance(source_data, dict):
+                continue
+            source_threats = source_data.get("threats", [])
+            if isinstance(source_threats, list):
+                for t in source_threats:
+                    if isinstance(t, dict):
+                        threats.append({
+                            "type": str(t.get("type", source_key)),
+                            "severity": str(t.get("severity", "critical")),
+                            "score_contribution": float(t.get("score_contribution", t.get("score", 0.0)) or 0.0),
+                            "location": str(t.get("location", "")),
+                            "description": str(t.get("description", ""))
+                        })
+                    else:
+                        threats.append({
+                            "type": source_key,
+                            "severity": "critical",
+                            "score_contribution": 0.0,
+                            "location": "",
+                            "description": str(t)
+                        })
+
+        response: Dict = {
+            "request_id": request_id,
+            "decision": decision,
+            "risk_score": risk_score,
+            "zone": zone,
+            "confidence": confidence,
+            "threats": threats,
+            "layer_scores": {
+                "dom_score": float(component_scores.get("dom_analysis", 0.0)),
+                "nlp_score": float(component_scores.get("nlp_classification", 0.0)),
+                "gemini_score": float(component_scores.get("llm_reasoning", 0.0)),
+                "gemini_triggered": bool(llm_analysis)
+            },
+            "metadata": {
+                "analysis_time_ms": int(performance.get("latency_ms", 0) or 0),
+                "dom_elements_scanned": int(dom_analysis.get("elements_scanned", dom_analysis.get("dom_elements_scanned", 0)) or 0),
+                "gemini_reasoning": llm_analysis.get("reasoning"),
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "error": None
+            }
+        }
+
+        return response
+    except Exception as exception:
+        return {
+            "request_id": request_id,
+            "decision": "BLOCK",
+            "risk_score": 1.0,
+            "zone": "danger",
+            "confidence": 1.0,
+            "threats": [],
+            "layer_scores": {},
+            "metadata": {
+                "analysis_time_ms": 0,
+                "dom_elements_scanned": 0,
+                "gemini_reasoning": None,
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "error": str(exception)
+            }
+        }
+
+
+@app.post("/validate_action")
+def validate_action(request: ValidateActionRequest):
+    request_id = request.request_id or str(uuid.uuid4())
+    try:
+        action_text = request.action.text
+        if request.action.sensitivity in ["critical", "high"]:
+            action_text = "[REDACTED]"
+
+        start_time = datetime.utcnow()
+
+        if not request.firewall_result.allowed:
+            decision = "BLOCK"
+            reason = "Firewall blocked this action"
+        elif request.page_context.risk_score >= 0.70:
+            decision = "BLOCK"
+            reason = "Page risk score in danger zone"
+        elif (request.action.sensitivity == "critical"
+              and request.firewall_result.confidence < 0.85):
+            decision = "BLOCK"
+            reason = "Critical action requires confidence >= 0.85"
+        elif (request.action.sensitivity == "high"
+              and request.firewall_result.confidence < 0.70):
+            decision = "BLOCK"
+            reason = "High sensitivity action requires confidence >= 0.70"
+        else:
+            mediator_result = security_mediator.validate_action(
+                action=request.action.type,
+                page_context=request.page_context.dict()
+            )
+            if mediator_result.get('is_safe', False):
+                decision = "ALLOW"
+                reason = mediator_result.get('recommendation', 'Action approved')
+            else:
+                decision = "BLOCK"
+                reason = mediator_result.get('recommendation', 'Action blocked')
+
+        conflict = (
+            request.firewall_result.allowed is True
+            and request.page_context.risk_score >= 0.50
+        )
+
+        credential_types = ["password", "credential", "token", "key", "secret"]
+        is_credential = any(
+            word in request.action.selector.lower()
+            for word in credential_types
+        )
+        action_type = "credential_input" if is_credential else request.action.type
+        requires_confirmation = (
+            request.action.sensitivity in ["critical", "high"]
+            or is_credential
+        )
+
+        processing_ms = int(
+            (datetime.utcnow() - start_time).total_seconds() * 1000
+        )
+
+        _ = action_text
+        return {
+            "request_id": request_id,
+            "decision": decision,
+            "reason": reason,
+            "risk_score": request.page_context.risk_score,
+            "confidence": request.firewall_result.confidence,
+            "action_classification": {
+                "sensitivity": request.action.sensitivity,
+                "action_type": action_type,
+                "requires_confirmation": requires_confirmation
+            },
+            "signals": {
+                "firewall_allowed": request.firewall_result.allowed,
+                "firewall_confidence": request.firewall_result.confidence,
+                "page_risk_score": request.page_context.risk_score,
+                "conflict_detected": conflict
+            },
+            "warnings": request.firewall_result.risk_factors,
+            "metadata": {
+                "processing_time_ms": processing_ms,
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "error": None
+            }
+        }
+    except Exception as exception:
+        return {
+            "request_id": request_id,
+            "decision": "BLOCK",
+            "reason": "Security validation failed — defaulting to safe state",
+            "risk_score": 1.0,
+            "confidence": 0.0,
+            "action_classification": {},
+            "signals": {},
+            "warnings": [],
+            "metadata": {
+                "processing_time_ms": 0,
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "error": str(exception)
+            }
         }
 
 
@@ -120,7 +393,7 @@ def demo_prompt_injection_attack():
         goal="Submit feedback"
     )
 
-    print(f"\n📊 Result: {result['status']}")
+    print(f"\n Result: {result['status']}")
     print(f"Task Completed: {result['task_completed']}")
 
     agent.close()
@@ -174,7 +447,7 @@ def demo_phishing_attack():
         goal="Log in to access the dashboard"
     )
 
-    print(f"\n📊 Result: {result['status']}")
+    print(f"\n Result: {result['status']}")
     print(f"Task Completed: {result['task_completed']}")
 
     agent.close()
@@ -183,7 +456,7 @@ def demo_phishing_attack():
 
 def main():
     """Run all demonstrations"""
-    print("\n🤖 SECURE AGENTIC BROWSER DEMONSTRATION")
+    print("\n SECURE AGENTIC BROWSER DEMONSTRATION")
     print("=" * 80)
 
     # Check API key
@@ -205,9 +478,9 @@ def main():
 
     for i, result in enumerate(results, 1):
         if result["status"] == "SUCCESS":
-            print(f"Demo {i}: ✅ SAFE COMPLETION | Unsafe actions prevented")
+            print(f"Demo {i}:  SAFE COMPLETION | Unsafe actions prevented")
         else:
-            print(f"Demo {i}: ❌ ERROR | Review execution")
+            print(f"Demo {i}:  ERROR | Review execution")
 
 
 

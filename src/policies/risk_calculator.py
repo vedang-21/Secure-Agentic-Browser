@@ -17,9 +17,9 @@ class MultiFactorRiskCalculator:
     
     # Risk thresholds
     THRESHOLDS = {
-        'block': 0.80,      # Block immediately
-        'confirm': 0.50,    # Require human confirmation
-        'warn': 0.30,       # Log warning but allow
+        'block': 0.50,      # Block immediately
+        'confirm': 0.35,    # Require human confirmation
+        'warn': 0.20,       # Log warning but allow
         'allow': 0.0,       # Safe to proceed
     }
     
@@ -41,13 +41,26 @@ class MultiFactorRiskCalculator:
         behavior_score = self._score_behavioral(behavioral_signals) if behavioral_signals else 0.0
         
         # Weighted combination
-        weights = self.WEIGHTS
-        total_risk = (
-            dom_score * weights['dom_analysis'] +
-            nlp_score * weights['nlp_classification'] +
-            llm_score * weights['llm_reasoning'] +
-            behavior_score * weights['behavioral_signals']
-        )
+        llm_valid = self._is_llm_valid(llm_results)
+        if llm_valid:
+            weights = self.WEIGHTS
+            total_risk = (
+                dom_score * weights['dom_analysis'] +
+                nlp_score * weights['nlp_classification'] +
+                llm_score * weights['llm_reasoning'] +
+                behavior_score * weights['behavioral_signals']
+            )
+        else:
+            weights = {
+                'dom_analysis': 0.35,
+                'nlp_classification': 0.50,
+                'behavioral_signals': 0.15,
+            }
+            total_risk = (
+                dom_score * weights['dom_analysis'] +
+                nlp_score * weights['nlp_classification'] +
+                behavior_score * weights['behavioral_signals']
+            )
         
         # Normalize to 0-1
         total_risk = max(0.0, min(1.0, total_risk))
@@ -73,6 +86,18 @@ class MultiFactorRiskCalculator:
         }
         
         return risk_report
+
+    def _is_llm_valid(self, llm_results: Dict) -> bool:
+        if llm_results is None:
+            return False
+        if not isinstance(llm_results, dict):
+            return False
+        if 'error' in llm_results:
+            return False
+        for value in llm_results.values():
+            if isinstance(value, str) and 'failed' in value.lower():
+                return False
+        return True
     
     def _score_dom_analysis(self, dom_results: Dict) -> float:
         """Score DOM analysis results (0.0 - 1.0)"""
