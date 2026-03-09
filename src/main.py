@@ -3,6 +3,7 @@ Secure Agentic Browser - Main Entry Point
 """
 
 import sys
+import asyncio
 import os
 from pathlib import Path
 from fastapi import FastAPI
@@ -11,6 +12,8 @@ from typing import Dict
 from dotenv import load_dotenv
 import uuid
 from datetime import datetime
+import httpx
+from functools import partial
 
 load_dotenv()
 # Add src to path
@@ -84,6 +87,13 @@ class ValidateActionRequest(BaseModel):
     action: ActionDetail
     page_context: PageContext
     firewall_result: FirewallResult = FirewallResult()
+
+
+class AgentExecuteRequest(BaseModel):
+    request_id: str = ""
+    url: str
+    goal: str
+    headless: bool = True
 
 
 # ─── App Initialization ─────────────────────────────────────────────────────
@@ -348,6 +358,137 @@ def validate_action(request: ValidateActionRequest):
                 "error": str(exception)
             }
         }
+
+
+@app.post("/agent_execute")
+async def agent_execute(request: AgentExecuteRequest):
+    request_id = request.request_id or str(uuid.uuid4())
+    agent = None
+    try:
+        try:
+            async with httpx.AsyncClient(timeout=10.0, verify=False) as client:
+                response = await client.get(request.url)
+                response.raise_for_status()
+                html = response.text
+        except Exception as fetch_exception:
+            return {
+                "request_id": request_id,
+                "status": "BLOCKED",
+                "task_completed": False,
+                "security_decision": "BLOCK",
+                "risk_score": 1.0,
+                "reason": f"Failed to fetch page content: {str(fetch_exception)}",
+                "gemini_reasoning": None,
+                "result": None,
+                "metadata": {
+                    "url": request.url,
+                    "goal": request.goal,
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "error": str(fetch_exception)
+                }
+            }
+
+        analyze_result = security_mediator.analyze_page(
+            page_content=html,
+            agent_goal=request.goal
+        )
+
+        risk_score = float(analyze_result.get("risk_score", 1.0) or 1.0)
+        decision = analyze_result.get("action", "BLOCK")
+        detailed_analysis = analyze_result.get("detailed_analysis", {}) or {}
+        llm_analysis = detailed_analysis.get("llm", {}) or {}
+        gemini_reasoning = (
+            llm_analysis.get("reasoning")
+            if isinstance(llm_analysis, dict)
+            else None
+        )
+
+        if decision == "BLOCK":
+            return {
+                "request_id": request_id,
+                "status": "BLOCKED",
+                "task_completed": False,
+                "security_decision": "BLOCK",
+                "risk_score": risk_score,
+                "reason": "Security analysis blocked this page",
+                "gemini_reasoning": gemini_reasoning,
+                "result": None,
+                "metadata": {
+                    "url": request.url,
+                    "goal": request.goal,
+                    "timestamp": datetime.utcnow().isoformat() + "Z"
+                }
+            }
+
+        if decision not in ["ALLOW", "WARN"]:
+            return {
+                "request_id": request_id,
+                "status": "BLOCKED",
+                "task_completed": False,
+                "security_decision": "BLOCK",
+                "risk_score": risk_score,
+                "reason": "Security analysis blocked this page",
+                "gemini_reasoning": gemini_reasoning,
+                "result": None,
+                "metadata": {
+                    "url": request.url,
+                    "goal": request.goal,
+                    "timestamp": datetime.utcnow().isoformat() + "Z"
+                }
+            }
+
+        def run_agent():
+            browser = AgenticBrowser(security_mediator, config)
+            browser.launch(headless=request.headless)
+            try:
+                return browser.navigate_and_execute(
+                    url=request.url,
+                    goal=request.goal
+                )
+            finally:
+                browser.close()
+
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, run_agent)
+
+        return {
+            "request_id": request_id,
+            "status": result.get("status", "UNKNOWN"),
+            "task_completed": result.get("task_completed", False),
+            "security_decision": decision,
+            "risk_score": risk_score,
+            "reason": "Agent task executed successfully",
+            "gemini_reasoning": gemini_reasoning,
+            "result": result,
+            "metadata": {
+                "url": request.url,
+                "goal": request.goal,
+                "timestamp": datetime.utcnow().isoformat() + "Z"
+            }
+        }
+    except Exception as exception:
+        return {
+            "request_id": request_id,
+            "status": "BLOCKED",
+            "task_completed": False,
+            "security_decision": "BLOCK",
+            "risk_score": 1.0,
+            "reason": "Security validation failed — defaulting to safe state",
+            "gemini_reasoning": None,
+            "result": None,
+            "metadata": {
+                "url": request.url,
+                "goal": request.goal,
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "error": str(exception)
+            }
+        }
+    finally:
+        if agent:
+            try:
+                agent.close()
+            except Exception:
+                pass
 
 
 @app.get("/metrics")
