@@ -6,7 +6,7 @@ import sys
 import asyncio
 import os
 from pathlib import Path
-from fastapi import FastAPI
+from fastapi import FastAPI, Header
 from pydantic import BaseModel
 from typing import Dict
 from dotenv import load_dotenv
@@ -20,6 +20,7 @@ load_dotenv()
 sys.path.insert(0, str(Path(__file__).parent))
 
 from src.core.agent import AgenticBrowser
+from src.core.agent_firewall import AgentFirewall
 from src.core.security_mediator import SecurityMediator
 import yaml
 
@@ -33,7 +34,7 @@ def load_config():
             return yaml.safe_load(f)
         # Replace ${VAR} placeholders with actual env values
         api_key = config.get('gemini_api_key', '')
-        if api_key.startswith('${') and api_key.endswith('}'):
+        if isinstance(api_key, str) and api_key.startswith('${') and api_key.endswith('}'):
             var_name = api_key[2:-1]
             config['gemini_api_key'] = os.getenv(var_name, '')
         return config
@@ -101,13 +102,15 @@ class AgentExecuteRequest(BaseModel):
 app = FastAPI(title="Secure Agentic Browser API")
 config = None
 security_mediator = None
+firewall = None
 
 
 @app.on_event("startup")
 async def startup():
-    global security_mediator, config
+    global security_mediator, config, firewall
     config = load_config()
     security_mediator = SecurityMediator(config)
+    firewall = AgentFirewall()
 
 
 # ─── Endpoints ──────────────────────────────────────────────────────────────
@@ -129,8 +132,46 @@ def health():
 
 
 @app.post("/analyze")
-def analyze(request: AnalyzeRequest):
+def analyze(request: AnalyzeRequest, x_api_key: str = Header(None)):
     request_id = request.request_id or str(uuid.uuid4())
+    session_id = request.agent_context.session_id or "anonymous"
+    try:
+        pre_flight = firewall.pre_flight(
+            url=request.url,
+            api_key=x_api_key or "",
+            session_id=session_id
+        )
+    except Exception as exception:
+        pre_flight = {
+            "allowed": False,
+            "reason": f"Firewall pre-flight failed: {str(exception)}"
+        }
+
+    if not pre_flight["allowed"]:
+        firewall.log_request(session_id, request.url, "BLOCK", 1.0)
+        return {
+            "request_id": request.request_id or str(uuid.uuid4()),
+            "decision": "BLOCK",
+            "risk_score": 1.0,
+            "zone": "danger",
+            "confidence": 1.0,
+            "threats": [{
+                "type": "firewall",
+                "severity": "critical",
+                "score_contribution": 1.0,
+                "location": "",
+                "description": pre_flight["reason"]
+            }],
+            "layer_scores": {},
+            "metadata": {
+                "analysis_time_ms": 0,
+                "dom_elements_scanned": 0,
+                "gemini_reasoning": None,
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "error": pre_flight["reason"]
+            }
+        }
+
     try:
         # Validate input
         if not request.raw_html or not request.raw_html.strip():
@@ -207,6 +248,7 @@ def analyze(request: AnalyzeRequest):
                             "description": str(t)
                         })
 
+        firewall.log_request(session_id, request.url, decision, risk_score)
         return {
             "request_id": request_id,
             "decision": decision,
@@ -358,6 +400,31 @@ def validate_action(request: ValidateActionRequest):
                 "error": str(exception)
             }
         }
+
+
+@app.get("/firewall/status")
+def firewall_status(x_api_key: str = Header(None)):
+    if not firewall.verify_api_key(x_api_key or ""):
+        return {"error": "Unauthorized", "status": 401}
+    stats = firewall.get_stats()
+    return {
+        "firewall_active": True,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        **stats
+    }
+
+
+@app.get("/firewall/audit")
+def firewall_audit(session_id: str = None, x_api_key: str = Header(None)):
+    if not firewall.verify_api_key(x_api_key or ""):
+        return {"error": "Unauthorized", "status": 401}
+    log = firewall.get_audit_log(session_id)
+    return {
+        "total_entries": len(log),
+        "session_id": session_id,
+        "log": log,
+        "timestamp": datetime.utcnow().isoformat() + "Z"
+    }
 
 
 @app.post("/agent_execute")
