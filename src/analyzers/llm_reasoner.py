@@ -13,13 +13,13 @@ class LLMThreatReasoner:
     """
 
     def __init__(self, api_key: str = None):
-        # 🔁 Anthropic → Gemini (NO logic change)
+        
         load_dotenv()
         genai.configure(
             api_key=api_key or os.getenv("GEMINI_API_KEY")
         )
-        self.client = genai.GenerativeModel("gemini-2.5-flash-lite")
-        self.model = "gemini-2.5-flash-lite"
+        self.client = genai.GenerativeModel("gemini-2.5-flash")
+        self.model = "gemini-2.5-flash"
 
     def analyze_intent(self,
                        visible_text: str,

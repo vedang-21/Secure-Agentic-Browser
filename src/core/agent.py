@@ -16,15 +16,15 @@ class AgenticBrowser:
     def __init__(self, security_mediator, config: Dict):
         self.security_mediator = security_mediator
 
-        # 🔁 Anthropic → Gemini (NO logic change)
+        #  Anthropic → Gemini (NO logic change)
         load_dotenv()
         genai.configure(
             api_key=os.getenv("GEMINI_API_KEY") or config.get("gemini_api_key")
         )
-        self.anthropic = genai.GenerativeModel("gemini-2.5-flash-lite")
+        self.anthropic = genai.GenerativeModel("gemini-2.5-flash")
 
         # Keep same variable name + intent
-        self.model = "gemini-2.5-flash-lite"
+        self.model = "gemini-2.5-flash"
 
         self.browser = None
         self.page = None
@@ -55,7 +55,7 @@ class AgenticBrowser:
         """
         self.current_goal = goal
 
-        print(f"🌐 Navigating to: {url}")
+        print(f" Navigating to: {url}")
         # Only navigate if we're not already on an injected page
         if url != "about:blank":
             self.page.goto(url, wait_until='networkidle')
@@ -63,7 +63,7 @@ class AgenticBrowser:
 
         page_content = self.page.content()
 
-        print("🔒 Running security analysis...")
+        print(" Running security analysis...")
         security_assessment = self.security_mediator.analyze_page(
             page_content=page_content,
             agent_goal=goal
@@ -82,7 +82,7 @@ class AgenticBrowser:
             }
 
         if action == "CONFIRM":
-            print("⚠️  SECURITY WARNING: This page requires manual confirmation")
+            print("  SECURITY WARNING: This page requires manual confirmation")
             user_approval = input("Proceed anyway? (yes/no): ")
             if user_approval.lower() != "yes":
                 return {
@@ -91,8 +91,8 @@ class AgenticBrowser:
                     "task_completed": False
                 }
 
-        print(f"🛡️ Security check passed. Evaluating task intent under security constraints:")
-        print(f"   ▶ Requested goal: {goal}")
+        print(f" Security check passed. Evaluating task intent under security constraints:")
+        print(f"  Requested goal: {goal}")
 
         try:
             result = self._execute_task(goal, page_content, security_assessment)
@@ -103,7 +103,7 @@ class AgenticBrowser:
                 "task_completed": True
             }
         except Exception as e:
-            print("❌ EXECUTION ERROR:", e)
+            print(" EXECUTION ERROR:", e)
             return {
                 'status': 'ERROR',
                 'error': str(e),
@@ -138,7 +138,7 @@ class AgenticBrowser:
 
         response = self.anthropic.generate_content(prompt)
 
-        # ✅ SAFE text extraction for Gemini
+        #  SAFE text extraction for Gemini
         response_text = ""
         if hasattr(response, "text") and response.text:
             response_text = response.text
@@ -191,7 +191,7 @@ class AgenticBrowser:
                         "reason": "missing selector"
                     }
 
-                # ✅ CRITICAL FIX
+                #  CRITICAL FIX
                 if not self.page.query_selector(selector):
                     return {
                         "action": "fill",
