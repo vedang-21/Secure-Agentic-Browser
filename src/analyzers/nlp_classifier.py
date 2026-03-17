@@ -1,7 +1,7 @@
-
 import re
 from typing import Dict, List, Tuple
 from collections import Counter
+import unicodedata
 
 class NLPThreatClassifier:
     """
@@ -58,6 +58,14 @@ class NLPThreatClassifier:
         r'urgent\s+action\s+required',
     ]
     
+    OBFUSCATION_PATTERNS = [
+        r'[A-Za-z0-9+/]{80,}',  # base64 blobs
+        r'(\\x[0-9a-fA-F]{2}){5,}',  # hex encoding
+        r'(\\u[0-9a-fA-F]{4}){3,}',  # unicode escapes
+        r'[\u202e\u202d\u202a\u202b\u202c]',  # unicode directionality
+    ]
+    HOMOGLYPH_CHARS = set('аесорхуАВЕКМНОРСТХ')  # Cyrillic chars similar to Latin
+
     def __init__(self):
         self.compiled_patterns = self._compile_patterns()
     
@@ -164,3 +172,28 @@ class NLPThreatClassifier:
             return 0.0
         punct = len([c for c in text if c in '!?.:;,'])
         return punct / len(text)
+    
+    def detect_obfuscation(self, text: str) -> List[str]:
+        alerts = []
+        for pattern in self.OBFUSCATION_PATTERNS:
+            if re.search(pattern, text):
+                alerts.append(f"Obfuscation pattern detected: {pattern}")
+        # Homoglyph detection
+        for char in text:
+            if char in self.HOMOGLYPH_CHARS:
+                alerts.append(f"Homoglyph character detected: {char}")
+        # Suspicious unicode blocks
+        for char in text:
+            if unicodedata.category(char).startswith('C') and char not in '\n\t\r':
+                alerts.append(f"Suspicious unicode control char: U+{ord(char):04X}")
+        return alerts
+
+    def classify(self, text: str) -> Dict:
+        # ...existing code...
+        obfuscation_alerts = self.detect_obfuscation(text)
+        # ...existing code...
+        result = {
+            # ...existing code...
+            'obfuscation_alerts': obfuscation_alerts,
+        }
+        return result
