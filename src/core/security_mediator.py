@@ -56,8 +56,15 @@ class SecurityMediator:
         # Layer 2: NLP classification
         nlp_visible = self.nlp_classifier.classify_text(visible_text, context='visible')
         nlp_hidden = self.nlp_classifier.classify_text(hidden_text, context='hidden')
+        nlp_obfuscation = self.nlp_classifier.detect_obfuscation(
+            f"{visible_text[:2000]} {hidden_text[:1000]}".strip()
+        )
 
-        nlp_results = self._combine_nlp_results(nlp_visible, nlp_hidden)
+        nlp_results = self._combine_nlp_results(
+            nlp_visible,
+            nlp_hidden,
+            nlp_obfuscation_alerts=nlp_obfuscation
+        )
 
         initial_risk = self._quick_risk_check(dom_results, nlp_results)
 
@@ -142,18 +149,28 @@ class SecurityMediator:
         hidden_texts = [elem['text'] for elem in hidden_elements]
         return ' '.join(hidden_texts)
 
-    def _combine_nlp_results(self, visible: Dict, hidden: Dict) -> Dict:
+    def _combine_nlp_results(self, visible: Dict, hidden: Dict, nlp_obfuscation_alerts=None) -> Dict:
+        nlp_obfuscation_alerts = nlp_obfuscation_alerts or []
+        merged_threats = list(set(visible['threats'] + hidden['threats']))
+        if nlp_obfuscation_alerts and 'obfuscation' not in merged_threats:
+            merged_threats.append('obfuscation')
+
         combined = {
-            'is_malicious': visible['is_malicious'] or hidden['is_malicious'],
+            'is_malicious': visible['is_malicious'] or hidden['is_malicious'] or bool(nlp_obfuscation_alerts),
             'confidence': max(visible['confidence'], hidden['confidence']),
-            'threats': list(set(visible['threats'] + hidden['threats'])),
+            'threats': merged_threats,
             'matched_patterns': visible['matched_patterns'] + hidden['matched_patterns'],
             'severity': max(
                 visible['severity'],
                 hidden['severity'],
                 key=lambda x: ['none', 'low', 'medium', 'high', 'critical'].index(x)
-            )
+            ),
+            'obfuscation_alerts': nlp_obfuscation_alerts[:20],
         }
+        if nlp_obfuscation_alerts:
+            combined['confidence'] = min(combined['confidence'] + 0.15, 1.0)
+            if combined['severity'] in ['none', 'low']:
+                combined['severity'] = 'medium'
         return combined
 
     def _quick_risk_check(self, dom: Dict, nlp: Dict) -> float:
@@ -167,6 +184,17 @@ class SecurityMediator:
 
         if dom.get('suspicious_forms'):
             score += 0.3
+
+        link_analysis = dom.get('link_analysis', {})
+        if link_analysis.get('suspicious_count', 0) > 0:
+            score += min(link_analysis['suspicious_count'] * 0.06, 0.3)
+
+        redirect_analysis = dom.get('redirect_analysis', {})
+        if redirect_analysis.get('redirect_count', 0) > 0:
+            score += min(0.18 + redirect_analysis['redirect_count'] * 0.05, 0.35)
+
+        if nlp.get('obfuscation_alerts'):
+            score += 0.15
 
         return min(score, 1.0)
 

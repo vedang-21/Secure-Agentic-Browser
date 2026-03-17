@@ -1,5 +1,4 @@
 from typing import Dict, List
-import math
 
 class MultiFactorRiskCalculator:
     """
@@ -103,7 +102,29 @@ class MultiFactorRiskCalculator:
         scripts = dom_results.get('script_analysis', {})
         if scripts.get('risky_inline_count', 0) > 0:
             score += 0.2
-        
+        if scripts.get('obfuscated_inline_count', 0) > 0:
+            score += min(scripts['obfuscated_inline_count'] * 0.08, 0.2)
+
+        # Deceptive links
+        link_analysis = dom_results.get('link_analysis', {})
+        suspicious_links = link_analysis.get('suspicious_count', 0)
+        if suspicious_links > 0:
+            score += min(suspicious_links * 0.05, 0.25)
+
+        # Forced redirect behavior
+        redirect_analysis = dom_results.get('redirect_analysis', {})
+        redirect_count = redirect_analysis.get('redirect_count', 0)
+        if redirect_count > 0:
+            score += min(0.12 + redirect_count * 0.04, 0.25)
+
+        # DOM-level obfuscation and anti-analysis anomalies
+        obfuscation_alerts = dom_results.get('obfuscation_alerts', [])
+        dom_anomalies = dom_results.get('dom_anomalies', [])
+        if obfuscation_alerts:
+            score += min(len(obfuscation_alerts) * 0.03, 0.2)
+        if dom_anomalies:
+            score += min(len(dom_anomalies) * 0.06, 0.18)
+
         return min(score, 1.0)
     
     def _score_nlp_results(self, nlp_results: Dict) -> float:
@@ -121,9 +142,13 @@ class MultiFactorRiskCalculator:
         has_critical = any(t in threats for t in critical_threats)
         threat_count_factor = min(len(threats) * 0.1, 0.3)
         critical_boost = 0.2 if has_critical else 0.0
-        
+
         score = confidence + threat_count_factor + critical_boost
-        
+
+        obfuscation_alerts = nlp_results.get('obfuscation_alerts', [])
+        if obfuscation_alerts:
+            score += min(len(obfuscation_alerts) * 0.04, 0.2)
+
         return min(score, 1.0)
     
     def _score_llm_results(self, llm_results: Dict) -> float:
@@ -180,11 +205,21 @@ class MultiFactorRiskCalculator:
                 indicators.append(f"{len(dom['hidden_elements'])} hidden elements detected")
             if dom.get('suspicious_forms'):
                 indicators.append(f"{len(dom['suspicious_forms'])} suspicious forms found")
-        
+            link_analysis = dom.get('link_analysis', {})
+            if link_analysis.get('suspicious_count', 0):
+                indicators.append(f"{link_analysis['suspicious_count']} suspicious links detected")
+            redirect_analysis = dom.get('redirect_analysis', {})
+            if redirect_analysis.get('redirect_count', 0):
+                indicators.append(f"{redirect_analysis['redirect_count']} redirect behaviors detected")
+            if dom.get('obfuscation_alerts'):
+                indicators.append(f"{len(dom['obfuscation_alerts'])} DOM obfuscation alerts")
+
         if nlp and nlp.get('threats'):
             for threat in nlp['threats']:
                 indicators.append(f"NLP detected: {threat}")
-        
+        if nlp and nlp.get('obfuscation_alerts'):
+            indicators.append(f"{len(nlp['obfuscation_alerts'])} NLP obfuscation alerts")
+
         if llm and llm.get('is_malicious'):
             indicators.append(f"LLM assessment: {llm.get('threat_type')}")
         

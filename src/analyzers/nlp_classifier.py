@@ -1,6 +1,5 @@
 import re
-from typing import Dict, List, Tuple
-from collections import Counter
+from typing import Dict, List
 import unicodedata
 
 class NLPThreatClassifier:
@@ -47,6 +46,8 @@ class NLPThreatClassifier:
         r'submit\s+to\s+https?://',
         r'transfer\s+(funds?|money|balance)',
         r'navigate\s+to\s+https?://[^\s]+',
+        r'enter\s+(your|the)\s+(otp|verification\s+code|2fa)',
+        r'provide\s+(seed\s+phrase|private\s+key|recovery\s+phrase)',
     ]
     
     # Deceptive UI text patterns
@@ -56,6 +57,17 @@ class NLPThreatClassifier:
         r'account\s+(suspended|locked|compromised)',
         r'verify\s+your\s+(account|identity|payment)',
         r'urgent\s+action\s+required',
+        r'limited\s+time\s+offer',
+        r'act\s+now',
+        r'immediately\s+to\s+avoid',
+    ]
+
+    SOCIAL_ENGINEERING_PATTERNS = [
+        r'this\s+is\s+(it|support|security)\s+team',
+        r'do\s+not\s+tell\s+anyone',
+        r'confidential\s+request',
+        r'bypass\s+normal\s+approval',
+        r'we\s+need\s+this\s+within\s+\d+\s*(minutes?|hours?)',
     ]
     
     OBFUSCATION_PATTERNS = [
@@ -80,6 +92,8 @@ class NLPThreatClassifier:
                                     for p in self.EXFILTRATION_PATTERNS]
         compiled['deceptive_ui'] = [re.compile(p, re.IGNORECASE) 
                                     for p in self.DECEPTIVE_UI_PATTERNS]
+        compiled['social_engineering'] = [re.compile(p, re.IGNORECASE)
+                                          for p in self.SOCIAL_ENGINEERING_PATTERNS]
         
         return compiled
     
@@ -189,11 +203,36 @@ class NLPThreatClassifier:
         return alerts
 
     def classify(self, text: str) -> Dict:
-        # ...existing code...
+        """Full classification including structural and obfuscation heuristics"""
+        base = self.classify_text(text, context='visible')
+        structure = self.analyze_text_structure(text)
         obfuscation_alerts = self.detect_obfuscation(text)
-        # ...existing code...
-        result = {
-            # ...existing code...
-            'obfuscation_alerts': obfuscation_alerts,
-        }
-        return result
+
+        if obfuscation_alerts:
+            base['threats'].append('obfuscation')
+            base['is_malicious'] = True
+            boost = min(0.15 + (0.03 * len(obfuscation_alerts)), 0.35)
+            base['confidence'] = min(base['confidence'] + boost, 1.0)
+
+        if structure['capitalization_ratio'] > 0.55 and structure['word_count'] > 12:
+            base['threats'].append('aggressive_urgency_tone')
+            base['is_malicious'] = True
+            base['confidence'] = min(base['confidence'] + 0.1, 1.0)
+
+        base['threats'] = sorted(set(base['threats']))
+        base['matched_patterns'] = base.get('matched_patterns', [])[:20]
+        base['obfuscation_alerts'] = obfuscation_alerts[:20]
+        base['text_structure'] = structure
+
+        if base['confidence'] > 0.8:
+            base['severity'] = 'critical'
+        elif base['confidence'] > 0.6:
+            base['severity'] = 'high'
+        elif base['confidence'] > 0.4:
+            base['severity'] = 'medium'
+        elif base['confidence'] > 0:
+            base['severity'] = 'low'
+        else:
+            base['severity'] = 'none'
+
+        return base
