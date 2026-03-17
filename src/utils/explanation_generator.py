@@ -60,8 +60,21 @@ class ExplanationGenerator:
             for form in forms[:2]:
                 if form.get('has_password'):
                     explanation_parts.append(f"  └─ Password field submitting to: {form.get('action', 'unknown')}")
+                if form.get('sensitive_fields'):
+                    explanation_parts.append(f"  └─ Sensitive fields: {', '.join(form.get('sensitive_fields', []))}")
                 explanation_parts.append(f"     Risk: {form.get('risk_score', 0):.2f}")
-        
+
+        link_analysis = dom_results.get('link_analysis', {})
+        if link_analysis.get('suspicious_count', 0):
+            explanation_parts.append(f"• Suspicious Links: {link_analysis['suspicious_count']} detected")
+            for link in link_analysis.get('suspicious_links', [])[:2]:
+                explanation_parts.append(f"  └─ URL: {link.get('url', '')[:100]}")
+                explanation_parts.append(f"     Indicators: {', '.join(link.get('indicators', []))}")
+
+        redirect_analysis = dom_results.get('redirect_analysis', {})
+        if redirect_analysis.get('redirect_count', 0):
+            explanation_parts.append(f"• Redirect Signals: {redirect_analysis['redirect_count']} detected")
+
         # NLP findings
         if nlp_results.get('is_malicious'):
             explanation_parts.append(f"• NLP Detection: {nlp_results['severity'].upper()} threat")
@@ -78,6 +91,10 @@ class ExplanationGenerator:
                 explanation_parts.append(f"  └─ Matched patterns:")
                 for pattern in patterns[:3]:
                     explanation_parts.append(f"     • \"{pattern}\"")
+            if nlp_results.get('obfuscation_alerts'):
+                explanation_parts.append(
+                    f"  └─ Obfuscation alerts: {len(nlp_results.get('obfuscation_alerts', []))}"
+                )
         
         # LLM reasoning
         if llm_results:
