@@ -22,6 +22,7 @@ class AgentFirewall:
         self.request_log = []
         self.session_tracker = defaultdict(list)
         self.blocked_sessions = set()
+        self.action_sequences = defaultdict(list)
 
     def verify_api_key(self, api_key: str) -> bool:
         expected_key = os.getenv("FIREWALL_API_KEY", "")
@@ -166,3 +167,55 @@ class AgentFirewall:
             return urlparse(url).netloc.lower()
         except Exception:
             return ""
+    
+    def log_action(self, session_id: str, action_type: str, url: str) -> Dict:
+        action_entry = {
+            "action": action_type,
+            "url": url,
+            "timestamp": time.time(),
+        }
+        self.action_sequences[session_id].append(action_entry)
+        return self._check_sequence_anomaly(session_id)
+    
+    def _check_sequence_anomaly(self, session_id: str) -> Dict:
+        actions = self.action_sequences[session_id][-10:]
+        click_count = sum(1 for a in actions if a["action"] == "click")
+        submit_count = sum(1 for a in actions if a["action"] == "submit")
+        domains = set(self._extract_domain(a["url"]) for a in actions)
+    
+        if click_count >= 5:
+            return {
+                "is_anomalous": True,
+                "reason": "Abnormal action chain detected — rapid repeated clicks",
+                "confidence": 0.85,
+            }
+        if submit_count > 2:
+            return {
+                "is_anomalous": True,
+                "reason": "Abnormal action chain detected — multiple form submissions",
+                "confidence": 0.90,
+            }
+        if len(domains) > 4:
+            return {
+                "is_anomalous": True,
+                "reason": "Abnormal action chain detected — rapid domain switching",
+                "confidence": 0.80,
+            }
+        return {
+            "is_anomalous": False,
+            "reason": "Normal behaviour pattern",
+            "confidence": 1.0,
+        }
+    
+    def get_behaviour_profile(self, session_id: str) -> Dict:
+        sequence = self.action_sequences[session_id]
+        action_counts = defaultdict(int)
+        for a in sequence:
+            action_counts[a["action"]] += 1
+        return {
+            "session_id": session_id,
+            "total_actions": len(sequence),
+            "recent_actions": sequence[-10:],
+            "is_flagged": session_id in self.blocked_sessions,
+            "action_counts": dict(action_counts),
+        }

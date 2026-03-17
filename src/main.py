@@ -299,6 +299,28 @@ def validate_action(request: ValidateActionRequest):
         if request.action.sensitivity in ["critical", "high"]:
             action_text = "[REDACTED]"
 
+        # Behaviour anomaly check
+        anomaly = firewall.log_action(
+            session_id=request.page_context.url,
+            action_type=request.action.type,
+            url=request.page_context.url
+        )
+        if anomaly["is_anomalous"]:
+            return {
+                "request_id": request_id,
+                "decision": "BLOCK",
+                "reason": anomaly["reason"],
+                "risk_score": 1.0,
+                "confidence": anomaly["confidence"],
+                "action_classification": {},
+                "signals": {},
+                "warnings": [anomaly["reason"]],
+                "metadata": {
+                    "processing_time_ms": 0,
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "error": None
+                }
+            }
         start_time = datetime.utcnow()
 
         # Decision matrix — checked in exact priority order
@@ -425,6 +447,12 @@ def firewall_audit(session_id: str = None, x_api_key: str = Header(None)):
         "log": log,
         "timestamp": datetime.utcnow().isoformat() + "Z"
     }
+
+@app.get("/firewall/behaviour/{session_id}")
+def behaviour_profile(session_id: str, x_api_key: str = Header(None)):
+    if not firewall.verify_api_key(x_api_key or ""):
+        return {"error": "Unauthorized", "status": 401}
+    return firewall.get_behaviour_profile(session_id)
 
 
 @app.post("/agent_execute")
