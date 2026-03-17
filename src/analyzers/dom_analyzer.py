@@ -1,6 +1,8 @@
 from bs4 import BeautifulSoup
 import re
 from typing import Dict, List, Tuple
+import base64
+import html
 
 
 class DOMAnalyzer:
@@ -29,6 +31,8 @@ class DOMAnalyzer:
             'iframe_analysis': self._analyze_iframes(soup),
             'script_analysis': self._analyze_scripts(soup),
             'dom_complexity': self._calculate_complexity(soup),
+            'obfuscation_alerts': self._detect_obfuscation(soup),
+            'dom_anomalies': self._detect_dom_anomalies(soup),
         }
 
         return results
@@ -128,7 +132,7 @@ class DOMAnalyzer:
         return iframes
 
     def _analyze_scripts(self, soup) -> Dict:
-        """Analyze JavaScript for dynamic injection risks"""
+        """Analyze JavaScript for dynamic injection and obfuscation risks"""
         scripts = soup.find_all('script')
 
         inline_scripts = [s for s in scripts if not s.get('src')]
@@ -136,21 +140,37 @@ class DOMAnalyzer:
 
         dangerous_patterns = [
             'eval(', 'innerHTML', 'document.write',
-            'setTimeout', 'setInterval', 'Function('
+            'setTimeout', 'setInterval', 'Function(',
+            'atob(', 'btoa(', 'fromCharCode', 'unescape',
+            'window[', 'String.fromCharCode', 'setImmediate',
+        ]
+
+        obfuscation_patterns = [
+            r'[A-Za-z0-9+/]{100,}',  # base64 blobs
+            r'(\\x[0-9a-fA-F]{2}){5,}',  # hex encoding
+            r'(\\u[0-9a-fA-F]{4}){3,}',  # unicode escapes
+            r'function\\s*\\(.*\\)\\s*{.*?eval\\(',  # eval in function
+            r'while\\s*\\(true\\)',  # infinite loop (anti-debug)
         ]
 
         risky_inline = []
+        obfuscated_scripts = []
         for script in inline_scripts:
             content = script.string or ''
             if any(p in content for p in dangerous_patterns):
                 risky_inline.append(content[:200])
+            for pattern in obfuscation_patterns:
+                if re.search(pattern, content):
+                    obfuscated_scripts.append(content[:200])
 
         return {
             'total_scripts': len(scripts),
             'inline_scripts': len(inline_scripts),
             'external_scripts': len(external_scripts),
             'risky_inline_count': len(risky_inline),
-            'external_sources': [s.get('src') for s in external_scripts]
+            'obfuscated_inline_count': len(obfuscated_scripts),
+            'external_sources': [s.get('src') for s in external_scripts],
+            'obfuscated_samples': obfuscated_scripts[:3],
         }
 
     def _is_external_url(self, url: str) -> bool:
@@ -210,3 +230,33 @@ class DOMAnalyzer:
             return 'high'
 
         return 'medium'
+
+    def _detect_obfuscation(self, soup) -> List[Dict]:
+        """Detect obfuscated attributes, suspicious encoding, and hidden payloads"""
+        alerts = []
+        # Check for base64, hex, or unicode in attributes
+        for tag in soup.find_all(True):
+            for attr, value in tag.attrs.items():
+                if isinstance(value, list):
+                    value = ' '.join(value)
+                if re.search(r'[A-Za-z0-9+/]{80,}', value):
+                    alerts.append({'tag': tag.name, 'attr': attr, 'type': 'base64_suspected', 'sample': value[:60]})
+                if re.search(r'(\\x[0-9a-fA-F]{2}){5,}', value):
+                    alerts.append({'tag': tag.name, 'attr': attr, 'type': 'hex_encoding', 'sample': value[:60]})
+                if re.search(r'(\\u[0-9a-fA-F]{4}){3,}', value):
+                    alerts.append({'tag': tag.name, 'attr': attr, 'type': 'unicode_escape', 'sample': value[:60]})
+        return alerts
+
+    def _detect_dom_anomalies(self, soup) -> List[str]:
+        """Detect DOM anomalies such as excessive nesting, suspicious tag ratios, or anti-analysis tricks"""
+        anomalies = []
+        total_elements = len(soup.find_all(True))
+        script_count = len(soup.find_all('script'))
+        iframe_count = len(soup.find_all('iframe'))
+        if script_count > total_elements * 0.2:
+            anomalies.append('High script-to-element ratio')
+        if iframe_count > total_elements * 0.1:
+            anomalies.append('High iframe-to-element ratio')
+        if self._get_max_depth(soup) > 30:
+            anomalies.append('Excessive DOM depth (possible anti-analysis)')
+        return anomalies
