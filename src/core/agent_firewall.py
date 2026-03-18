@@ -168,16 +168,19 @@ class AgentFirewall:
         except Exception:
             return ""
     
-    def log_action(self, session_id: str, action_type: str, url: str) -> Dict:
+    def log_action(
+        self, session_id: str, action_type: str, url: str, goal: str = ""
+    ) -> Dict:
         action_entry = {
             "action": action_type,
             "url": url,
             "timestamp": time.time(),
+            "goal": goal,
         }
         self.action_sequences[session_id].append(action_entry)
-        return self._check_sequence_anomaly(session_id)
+        return self._check_sequence_anomaly(session_id, goal)
     
-    def _check_sequence_anomaly(self, session_id: str) -> Dict:
+    def _check_sequence_anomaly(self, session_id: str, goal: str = "") -> Dict:
         actions = self.action_sequences[session_id][-10:]
         click_count = sum(1 for a in actions if a["action"] == "click")
         submit_count = sum(1 for a in actions if a["action"] == "submit")
@@ -201,6 +204,29 @@ class AgentFirewall:
                 "reason": "Abnormal action chain detected — rapid domain switching",
                 "confidence": 0.80,
             }
+        if goal and actions:
+            goal_keywords = [word.lower() for word in goal.split() if len(word) > 3]
+
+            current_url = actions[-1].get("url", "")
+            current_domain = self._extract_domain(current_url)
+
+            first_domain = self._extract_domain(actions[0].get("url", ""))
+
+            domain_matches_goal = any(
+                keyword in current_domain for keyword in goal_keywords
+            )
+
+            if (
+                not domain_matches_goal
+                and current_domain != first_domain
+                and current_domain not in ["", "example.com", "localhost"]
+                and len(actions) > 2
+            ):
+                return {
+                    "is_anomalous": True,
+                    "reason": f"Goal deviation detected — agent navigated to {current_domain} which appears unrelated to goal: '{goal}'",
+                    "confidence": 0.75,
+                }
         return {
             "is_anomalous": False,
             "reason": "Normal behaviour pattern",

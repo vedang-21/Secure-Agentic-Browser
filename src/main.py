@@ -88,6 +88,8 @@ class ValidateActionRequest(BaseModel):
     action: ActionDetail
     page_context: PageContext
     firewall_result: FirewallResult = FirewallResult()
+    goal: str = ""
+    session_id: str = "default"
 
 
 class AgentExecuteRequest(BaseModel):
@@ -301,9 +303,10 @@ def validate_action(request: ValidateActionRequest):
 
         # Behaviour anomaly check
         anomaly = firewall.log_action(
-            session_id=request.page_context.url,
+            session_id=request.session_id,
             action_type=request.action.type,
-            url=request.page_context.url
+            url=request.page_context.url,
+            goal=request.goal
         )
         if anomaly["is_anomalous"]:
             return {
