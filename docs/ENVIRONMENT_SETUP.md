@@ -6,7 +6,7 @@ This guide will help you set up your environment variables securely without expo
 
 ### Option 1: Automated Setup Script
 ```bash
-python setup_env.py
+python config/setup_env.py
 ```
 
 This will:
@@ -194,7 +194,7 @@ Once your environment is set up:
 
 3. **Try interactive demo:**
    ```bash
-   python tests/interactive_demo.py
+   python tests/demos/interactive_demo.py
    ```
 
 4. **Use setup script for everything:**

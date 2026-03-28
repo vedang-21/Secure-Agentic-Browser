@@ -127,7 +127,7 @@ def suggest_fixes():
     print("   • Check available disk space (need ~1GB for browsers)")
     print("")
     print("3️⃣ PERMISSION ISSUES:")
-    print("   • Run with: sudo python diagnose_browser.py")
+    print("   • Run with: sudo python diagnostics/diagnose_browser.py")
     print("   • Check System Preferences > Security & Privacy")
     print("")
     print("4️⃣ ALTERNATIVE APPROACHES:")

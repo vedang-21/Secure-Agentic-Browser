@@ -42,8 +42,8 @@ Your external firewall should:
 
 ```bash
 # Test with mock firewall (included)
-python tests/mock_external_firewall.py  # Terminal 1
-python tests/test_external_firewall.py  # Terminal 2
+python tests/firewall/mock_external_firewall.py  # Terminal 1
+python tests/firewall/test_external_firewall.py  # Terminal 2
 
 # Run agent with external firewall
 python main.py
@@ -177,10 +177,10 @@ Use the included mock firewall to test your integration:
 
 ```bash
 # Start mock firewall
-python tests/mock_external_firewall.py
+python tests/firewall/mock_external_firewall.py
 
 # Test various scenarios
-python tests/test_external_firewall.py
+python tests/firewall/test_external_firewall.py
 ```
 
 The mock firewall demonstrates the expected behavior and can help you develop your actual firewall implementation.

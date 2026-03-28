@@ -17,7 +17,7 @@ def check_test_directory_structure():
         "quick_test.py",
         "interactive_demo.py", 
         "test_agent.py",
-        "diagnose_browser.py",
+        "diagnostics/diagnose_browser.py",
         "ultra_simple_browser_test.py",
         "test_macos_browser.py",
         "syntax_check.py",

@@ -85,7 +85,7 @@ External firewall API integration guide. Includes:
 ### **Support Channels**
 - Review the appropriate documentation section above
 - Check the [test suite](../tests/) for working examples
-- Run diagnostic tests: `python tests/diagnose_browser.py`
+- Run diagnostic tests: `python tests/diagnostics/diagnostics/diagnose_browser.py`
 
 ## 🔄 Document Updates
 

@@ -178,7 +178,7 @@ run_demo() {
     echo "🎮 Running interactive demo..."
     
     if [ -f "tests/interactive_demo.py" ]; then
-        python tests/interactive_demo.py
+        python tests/demos/interactive_demo.py
     else
         print_error "tests/interactive_demo.py not found"
     fi
