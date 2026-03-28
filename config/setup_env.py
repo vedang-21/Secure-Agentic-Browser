@@ -182,7 +182,7 @@ def show_usage_instructions():
     print("   python run_tests.py")
     print()
     print("3️⃣ INTERACTIVE DEMO:")
-    print("   python tests/interactive_demo.py")
+    print("   python tests/demos/interactive_demo.py")
     print()
     print("4️⃣ SETUP SCRIPT:")
     print("   ./setup_and_test.sh")

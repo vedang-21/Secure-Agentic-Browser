@@ -42,7 +42,7 @@ async def test_external_firewall_integration():
             mock_available = False
     except Exception as e:
         print(f"ℹ️ Mock firewall server not running (this is okay)")
-        print(f"   💡 You can start it with: python tests/mock_external_firewall.py")
+        print(f"   💡 You can start it with: python tests/firewall/mock_external_firewall.py")
         mock_available = False
     
     # Test 2: Test FirewallClient with local rules

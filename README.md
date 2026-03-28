@@ -29,7 +29,7 @@ A sophisticated Python AI agent system that provides secure, autonomous browser 
 ├── 🧪 tests/
 │   ├── quick_test.py               # Comprehensive system test
 │   ├── interactive_demo.py         # Interactive demonstration
-│   ├── diagnose_browser.py         # Browser diagnostics
+│   ├── diagnostics/diagnose_browser.py         # Browser diagnostics
 │   └── example_browser_executor.py # Usage examples
 ├── � config/
 │   ├── .env.template              # Environment template  
@@ -44,69 +44,17 @@ A sophisticated Python AI agent system that provides secure, autonomous browser 
 
 ## 🚀 Quick Start
 
-### Option 1: Automated Setup (Recommended)
-```bash
-# Run the comprehensive setup script
-./setup_and_test.sh
+### 1) Configure environment
 
-# Follow the interactive menu to:
-# 1. Install all dependencies
-# 2. Set up environment variables  
-# 3. Start the server
-# 4. Run tests
+```bash
+# Recommended interactive setup
+python config/setup_config.py
+
+# (Legacy) environment setup helper
+python config/setup_env.py
 ```
 
-### Option 2: Manual Setup
-```bash
-# 1. Install Dependencies
-pip install fastapi uvicorn playwright google-generativeai httpx pydantic python-dotenv requests
-
-# 2. Install Playwright Browsers
-playwright install
-
-# 3. Configure Environment (choose one):
-
-# Option A: Create .env file
-cp .env.template .env
-# Edit .env and add: GOOGLE_API_KEY=your_actual_api_key
-
-# Option B: Export environment variable
-export GOOGLE_API_KEY="your_gemini_api_key_here"
-
-# 4. Start the server
-python main.py
-```
-
-### Option 3: Interactive Environment Setup
-```bash
-# Run the setup script for guided configuration
-python setup_env.py
-```
-
-## 🧪 Testing
-
-### Run All Tests
-```bash
-# From project root
-python tests/quick_test.py
-
-# Or use the test runner
-python run_tests.py
-```
-
-### Interactive Demo
-```bash
-python tests/interactive_demo.py
-```
-
-### Browser Diagnostics
-```bash
-python tests/diagnose_browser.py
-```
-
-## 💻 Usage
-
-### Start the Server
+### 2) Start the Server
 
 ```bash
 python main.py
@@ -114,7 +62,7 @@ python main.py
 
 The server will start on `http://localhost:8001`
 
-### API Endpoints
+### 3) API Endpoints
 
 #### Execute Agent Task
 ```bash
@@ -280,10 +228,10 @@ FIREWALL_API_KEY=your_firewall_api_key
 #### **Testing External Firewall**
 ```bash
 # Start mock firewall server (for testing)
-python tests/mock_external_firewall.py
+python tests/firewall/mock_external_firewall.py
 
 # Test integration
-python tests/test_external_firewall.py
+python tests/firewall/test_external_firewall.py
 
 # Run with external firewall enabled
 USE_EXTERNAL_FIREWALL=true python main.py
@@ -334,7 +282,7 @@ The API is designed to work with browser extensions. Extensions can:
 #### Browser Crashes on macOS
 - The system uses system Chrome instead of bundled Chromium
 - Ensure Google Chrome is installed at `/Applications/Google Chrome.app`
-- Run browser diagnostics: `python tests/diagnose_browser.py`
+- Run browser diagnostics: `python tests/diagnostics/diagnostics/diagnose_browser.py`
 
 #### API Key Issues
 - Make sure `GOOGLE_API_KEY` is set in `.env` file
@@ -352,10 +300,10 @@ The API is designed to work with browser extensions. Extensions can:
 python tests/quick_test.py
 
 # Interactive demo
-python tests/interactive_demo.py
+python tests/demos/interactive_demo.py
 
 # Browser diagnostics
-python tests/diagnose_browser.py
+python tests/diagnostics/diagnostics/diagnose_browser.py
 
 # Full system check
 python diagnose_system.py
