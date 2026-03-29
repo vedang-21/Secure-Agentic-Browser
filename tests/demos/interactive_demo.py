@@ -9,8 +9,10 @@ import os
 import sys
 import uuid
 
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Ensure repo root is on sys.path so `import src.*` works regardless of CWD
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 from src.agent.agent_controller import AgentController, AgentTask
 
