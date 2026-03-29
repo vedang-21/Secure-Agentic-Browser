@@ -25,7 +25,9 @@ class SystemChromeBrowserExecutor:
         self.allow_manual_captcha_solve: bool = True
         # Maximum time to wait for manual CAPTCHA solve.
         self.manual_captcha_timeout_s: int = 180
-    
+        # CDP support
+        self._cdp_endpoint: str = "http://127.0.0.1:9222"
+
     async def initialize_browser(self):
         """Initialize browser using system Google Chrome."""
         if self._initialized:
@@ -548,6 +550,61 @@ class SystemChromeBrowserExecutor:
                 await asyncio.sleep(1)
         except Exception:
             pass
+
+    async def attach_to_cdp_tab(self, *, cdp_endpoint: str | None = None, tab_url: str | None = None) -> None:
+        """Attach to an existing Chrome instance via CDP (remote debugging).
+
+        This enables running the agent on a user-controlled tab (e.g., from a browser extension).
+
+        Args:
+            cdp_endpoint: e.g. http://127.0.0.1:9222
+            tab_url: optional substring to pick a matching tab; if omitted, uses the first page.
+        """
+        if cdp_endpoint:
+            self._cdp_endpoint = cdp_endpoint
+
+        # Start Playwright if needed
+        if not self.playwright:
+            self.playwright = await async_playwright().start()
+
+        logger.info(f"🔌 Attaching to Chrome via CDP at {self._cdp_endpoint}...")
+
+        # Connect to an already-running Chrome with --remote-debugging-port
+        self.browser = await self.playwright.chromium.connect_over_cdp(self._cdp_endpoint)
+
+        # In CDP mode, the browser returns one or more contexts.
+        contexts = list(self.browser.contexts)
+        if not contexts:
+            # Create a context if none exist (rare)
+            self.context = await self.browser.new_context()
+        else:
+            self.context = contexts[0]
+
+        # Find an existing page
+        pages = list(self.context.pages)
+        if not pages:
+            self.page = await self.context.new_page()
+        else:
+            if tab_url:
+                match = None
+                for p in pages:
+                    try:
+                        if tab_url in (p.url or ""):
+                            match = p
+                            break
+                    except Exception:
+                        continue
+                self.page = match or pages[0]
+            else:
+                self.page = pages[0]
+
+        self._initialized = True
+        try:
+            await self.page.bring_to_front()
+        except Exception:
+            pass
+
+        logger.info(f"✅ Attached to tab: {getattr(self.page, 'url', '')}")
 
 # For backward compatibility, create an alias
 BrowserExecutor = SystemChromeBrowserExecutor

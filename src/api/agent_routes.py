@@ -4,6 +4,7 @@ from typing import Dict, Any, Optional
 import uuid
 import logging
 import asyncio
+import os
 from ..agent.agent_controller import AgentController, AgentTask
 
 logger = logging.getLogger(__name__)
@@ -35,6 +36,14 @@ class TaskStatusResponse(BaseModel):
     user_request: Optional[str] = None
     result: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
+
+class RunOnActiveTabRequest(BaseModel):
+    task: str
+    tabId: Optional[int] = None
+    tabUrl: Optional[str] = None
+    # Optional override; defaults to CDP_ENDPOINT env or http://127.0.0.1:9222
+    cdpEndpoint: Optional[str] = None
+    max_steps: Optional[int] = 15
 
 async def run_agent(task: str) -> Dict[str, Any]:
     """
@@ -89,15 +98,6 @@ async def agent_execute(request: AgentExecuteRequest, background_tasks: Backgrou
     except Exception as e:
         logger.error(f"Failed to start agent task: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to start agent task: {str(e)}")
-
-# ...existing code...
-    task_id: str
-    status: str
-    current_step: Optional[int] = None
-    max_steps: Optional[int] = None
-    user_request: Optional[str] = None
-    result: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
 
 @router.post("/execute-task", response_model=TaskResponse)
 async def execute_task(request: TaskRequest, background_tasks: BackgroundTasks):
@@ -250,3 +250,36 @@ async def cleanup_browser():
     except Exception as e:
         logger.error(f"Failed to cleanup browser: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to cleanup browser: {str(e)}")
+
+@router.post("/agent/run_on_active_tab")
+async def run_on_active_tab(request: RunOnActiveTabRequest):
+    """Run the secure agent loop attached to an existing Chrome tab via CDP.
+
+    The extension supplies the active tab info; the server attaches to Chrome that was
+    started with remote debugging (e.g. --remote-debugging-port=9222).
+
+    All actions still flow through FirewallClient -> root firewall/analysers.
+    """
+    try:
+        if not request.task:
+            raise HTTPException(status_code=400, detail="task is required")
+
+        cdp_endpoint = request.cdpEndpoint or os.getenv("CDP_ENDPOINT") or "http://127.0.0.1:9222"
+
+        # Attach first (select tab by URL substring when available)
+        await agent_controller.attach_to_existing_tab(cdp_endpoint=cdp_endpoint, tab_url=request.tabUrl)
+
+        agent_task = AgentTask(
+            task_id=str(uuid.uuid4()),
+            user_request=request.task,
+            max_steps=int(request.max_steps or 15),
+        )
+
+        result = await agent_controller.execute_task(agent_task)
+        return {"status": "ok", "task_id": agent_task.task_id, "result": result}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"run_on_active_tab failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))

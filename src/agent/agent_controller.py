@@ -84,7 +84,13 @@ class AgentController:
         self.browser_executor = BrowserExecutor()
         self.firewall_client = FirewallClient()
         self.current_task: Optional[AgentTask] = None
-        
+
+    async def attach_to_existing_tab(self, *, cdp_endpoint: str, tab_url: Optional[str] = None) -> None:
+        """Attach the executor to an already-open Chrome tab via CDP."""
+        if not hasattr(self.browser_executor, "attach_to_cdp_tab"):
+            raise RuntimeError("Configured browser executor does not support CDP attach")
+        await self.browser_executor.attach_to_cdp_tab(cdp_endpoint=cdp_endpoint, tab_url=tab_url)
+
     async def execute_task(self, task: AgentTask) -> Dict[str, Any]:
         """
         Execute the secure agent loop with comprehensive logging:

@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Agentic AI - Active Tab Runner (Test)",
+  "version": "0.1.0",
+  "description": "Test extension: provides a search bar and runs the secure agent in the active tab via local API.",
+  "action": {
+    "default_title": "Run Agent",
+    "default_popup": "src/popup.html"
+  },
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:8000/*",
+    "http://localhost:8000/*"
+  ]
+}
