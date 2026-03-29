@@ -12,7 +12,7 @@ from typing import Dict, Any
 logger = logging.getLogger(__name__)
 
 class SystemChromeBrowserExecutor:
-    """Browser executor that uses system Google Chrome on macOS."""
+    """Browser executor that uses system Google Chrome."""
 
     def __init__(self):
         self.playwright = None
