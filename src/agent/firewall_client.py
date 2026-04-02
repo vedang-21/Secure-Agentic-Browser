@@ -1,6 +1,7 @@
 import logging
 import os
 from typing import Any, Dict, Optional
+from urllib.parse import urlparse
 
 import httpx
 
@@ -65,26 +66,64 @@ class FirewallClient:
 
         return local
 
+    def _is_trusted_domain(self, url: str) -> bool:
+        """Return True if url matches a trusted domain allowlist.
+
+        Trusted domains still go through action validation, but we can skip expensive
+        HTML/page-risk analysis to reduce latency.
+        """
+        try:
+            host = (urlparse(url).hostname or "").lower()
+        except Exception:
+            host = ""
+
+        allowlist = os.getenv(
+            "FIREWALL_TRUSTED_DOMAINS",
+            "google.com,wikipedia.org,duckduckgo.com,github.com,stackoverflow.com",
+        )
+        domains = [d.strip().lower() for d in allowlist.split(",") if d.strip()]
+
+        # exact or subdomain match
+        for d in domains:
+            if host == d or host.endswith("." + d):
+                return True
+        return False
+
     def _validate_locally(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         action = payload.get("action") or {}
         page_context = payload.get("page_context") or {}
 
         action_type = action.get("action", "unknown")
 
+        page_url = page_context.get("url") or ""
+        trusted = self._is_trusted_domain(page_url)
+
         # Page assessment (html is optional; SecurityMediator expects HTML string)
         html = page_context.get("html") or page_context.get("html_content") or ""
         goal = page_context.get("agent_goal") or page_context.get("goal") or ""
 
         risk_summary = {"risk_score": 0.0, "action": "ALLOW", "confidence": 0.0}
-        if html.strip():
-            risk_summary = self._mediator.analyze_page(page_content=html, agent_goal=goal)
 
-        # Action validation (borderline page risk)
+        # Optimization: on trusted domains we skip the expensive HTML analysis layer
+        # (DOM/LLM scans) and only use lightweight action validation.
+        if (not trusted) and html.strip():
+            risk_summary = self._mediator.analyze_page(page_content=html, agent_goal=goal)
+        elif trusted:
+            risk_summary = {
+                "risk_score": 0.0,
+                "action": "ALLOW",
+                "confidence": 0.95,
+                "note": f"trusted_domain_fast_path:{page_url}",
+            }
+
+        # Action validation (still required)
         action_validation = self._mediator.validate_action(
             action=str(action),
             page_context={
                 "visible_text": page_context.get("visible_text", ""),
                 "risk_score": float(risk_summary.get("risk_score", 0.0) or 0.0),
+                "url": page_url,
+                "trusted_domain": trusted,
             },
         )
 

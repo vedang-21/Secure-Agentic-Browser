@@ -27,6 +27,16 @@ class SystemChromeBrowserExecutor:
         self.manual_captcha_timeout_s: int = 180
         # CDP support
         self._cdp_endpoint: str = "http://127.0.0.1:9222"
+        # Performance tuning
+        self.fast_domains = {
+            "google.com",
+            "www.google.com",
+            "wikipedia.org",
+            "en.wikipedia.org",
+            "duckduckgo.com",
+            "www.duckduckgo.com",
+        }
+        self.fast_mode_default: bool = True
 
     async def initialize_browser(self):
         """Initialize browser using system Google Chrome."""
@@ -90,20 +100,85 @@ class SystemChromeBrowserExecutor:
             logger.error(f"❌ {error_msg}")
             raise RuntimeError(error_msg)
     
+    def _normalize_selector(self, selector: str) -> str:
+        """Normalize/upgrade selectors to Playwright-friendly forms.
+
+        The planner sometimes emits jQuery-only selectors like `div:contains("18")`.
+        Playwright supports `text=...` and `:has-text()` instead.
+        """
+        s = (selector or "").strip()
+        if not s:
+            return s
+
+        # Convert jQuery :contains("text") into a valid Playwright selector.
+        # Examples:
+        #   div:contains("18")  -> div:has-text("18")
+        #   :contains("foo")     -> text=foo
+        if ":contains(" in s:
+            try:
+                import re
+
+                m = re.search(r":contains\((['\"])(.*?)\1\)", s)
+                if m:
+                    txt = m.group(2)
+                    # Replace the :contains(...) part.
+                    if s.startswith(":contains"):
+                        return f"text={txt}"
+                    return re.sub(r":contains\((['\"])(.*?)\1\)", f":has-text(\"{txt}\")", s)
+            except Exception:
+                # fall through
+                pass
+
+        return s
+
+    def _is_likely_css_selector(self, selector: str) -> bool:
+        s = (selector or "").strip()
+        if not s:
+            return False
+        # Playwright text selectors include `text=` and are not CSS.
+        if s.startswith("text="):
+            return False
+        return True
+
     async def click(self, selector: str) -> None:
         """Click on an element with better error handling."""
         if not self._initialized:
             await self.initialize_browser()
-        
+
+        sel = self._normalize_selector(selector)
+
         try:
-            logger.info(f"👆 Clicking: {selector}")
-            await self.page.wait_for_selector(selector, timeout=10000)
-            await self.page.click(selector)
+            logger.info(f"👆 Clicking: {sel}")
+            await self.page.wait_for_selector(sel, timeout=10000)
+            await self.page.click(sel)
             await asyncio.sleep(1)
-            logger.info(f"✅ Successfully clicked: {selector}")
-            
+            logger.info(f"✅ Successfully clicked: {sel}")
+
         except Exception as e:
-            error_msg = f"Click failed: {str(e)}"
+            # If selector is invalid CSS, try a text-based fallback.
+            raw = (selector or "").strip()
+            if ":contains(" in raw and not (raw.strip().startswith("text=")):
+                try:
+                    # Extract text and click by text.
+                    import re
+
+                    m = re.search(r":contains\((['\"])(.*?)\1\)", raw)
+                    if m:
+                        txt = m.group(2)
+                        text_sel = f"text={txt}"
+                        logger.info(f"👆 Fallback click via text selector: {text_sel}")
+                        await self.page.wait_for_selector(text_sel, timeout=8000)
+                        await self.page.click(text_sel)
+                        await asyncio.sleep(1)
+                        logger.info(f"✅ Successfully clicked (text fallback): {text_sel}")
+                        return
+                except Exception:
+                    pass
+
+            error_msg = (
+                f"Click failed: {str(e)}\n"
+                f"Hint: Use Playwright selectors. Instead of `:contains()`, prefer `text=...` or `:has-text(\"...\")`."
+            )
             logger.error(f"❌ {error_msg}")
             raise RuntimeError(error_msg)
     
@@ -142,6 +217,27 @@ class SystemChromeBrowserExecutor:
             logger.error(f"❌ {error_msg}")
             raise RuntimeError(error_msg)
     
+    def _is_fast_domain(self) -> bool:
+        try:
+            url = getattr(self.page, "url", "") or ""
+            host = url.split("//", 1)[-1].split("/", 1)[0].lower()
+            return host in self.fast_domains or any(host.endswith("." + d) for d in self.fast_domains)
+        except Exception:
+            return False
+
+    async def _quick_recover_ui(self) -> None:
+        """Best-effort UI recovery for stuck pages: Escape + dismiss overlays."""
+        if not self.page:
+            return
+        try:
+            await self.page.keyboard.press("Escape")
+        except Exception:
+            pass
+        try:
+            await self._best_effort_dismiss_overlays()
+        except Exception:
+            pass
+
     async def _best_effort_dismiss_overlays(self) -> None:
         """Best-effort click-away for common consent/overlay dialogs (Google, etc.)."""
         if not self._initialized:
@@ -158,46 +254,27 @@ class SystemChromeBrowserExecutor:
             "text=Accept",
         ]
 
+        # In fast mode, avoid sleeping per candidate.
+        fast = self.fast_mode_default and self._is_fast_domain()
+
         for sel in candidates:
             try:
                 el = await self.page.query_selector(sel)
                 if el:
                     await el.click(timeout=1500)
-                    await asyncio.sleep(0.5)
+                    if not fast:
+                        await asyncio.sleep(0.5)
             except Exception:
                 pass
-
-    async def _set_input_value_js(self, selector: str, value: str) -> bool:
-        """Fallback: set value via JS and dispatch events."""
-        if not self.page:
-            return False
-        try:
-            ok = await self.page.evaluate(
-                """
-                ({ selector, value }) => {
-                  const el = document.querySelector(selector);
-                  if (!el) return false;
-                  el.focus();
-                  // Works for <input> and <textarea>
-                  el.value = value;
-                  el.dispatchEvent(new Event('input', { bubbles: true }));
-                  el.dispatchEvent(new Event('change', { bubbles: true }));
-                  // Enter key
-                  el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', which: 13, keyCode: 13, bubbles: true }));
-                  el.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', which: 13, keyCode: 13, bubbles: true }));
-                  return true;
-                }
-                """,
-                {"selector": selector, "value": value},
-            )
-            return bool(ok)
-        except Exception:
-            return False
 
     async def type_and_submit(self, selector: str, text: str) -> None:
         """Type text and immediately submit (useful for search boxes)."""
         if not self._initialized:
             await self.initialize_browser()
+
+        fast = self.fast_mode_default and self._is_fast_domain()
+        load_timeout = 5000 if fast else 15000
+        sel_timeout = 5000 if fast else 15000
 
         # If we're on Google and already blocked, don't keep retrying selectors.
         await self._handle_captcha_if_present("before typing")
@@ -220,57 +297,67 @@ class SystemChromeBrowserExecutor:
         last_error: Exception | None = None
         for sel in selector_candidates:
             try:
-                logger.info(f"⌨️🔍 Typing and submitting '{text}' in: {sel}")
+                logger.info(f"⌨️🔍 Typing and submitting '{text}' in: {sel} (fast={fast})")
 
                 await self.page.bring_to_front()
 
-                # Only wait for load state / selector if not immediately present.
                 el = await self.page.query_selector(sel)
                 if el is None:
-                    await self.page.wait_for_load_state("domcontentloaded", timeout=15000)
+                    await self.page.wait_for_load_state("domcontentloaded", timeout=load_timeout)
                     await self._best_effort_dismiss_overlays()
                     await self._maybe_use_google_ncr()
                     await self._handle_captcha_if_present("before selector wait")
-                    el = await self.page.wait_for_selector(sel, timeout=15000, state="visible")
+                    el = await self.page.wait_for_selector(sel, timeout=sel_timeout, state="visible")
                 else:
-                    try:
-                        await self._best_effort_dismiss_overlays()
-                        await self._maybe_use_google_ncr()
-                    except Exception:
-                        pass
+                    await self._best_effort_dismiss_overlays()
+                    await self._maybe_use_google_ncr()
 
-                await el.scroll_into_view_if_needed(timeout=3000)
+                await el.scroll_into_view_if_needed(timeout=2000 if fast else 3000)
 
                 if not await el.is_editable():
                     raise RuntimeError("element not editable")
 
-                await el.click(timeout=5000, force=True)
+                await el.click(timeout=2000 if fast else 5000, force=True)
 
-                # Clear existing content
+                # Clear existing content quickly
                 try:
                     await el.fill("")
                 except Exception:
-                    await el.press("Meta+A")
-                    await el.press("Backspace")
+                    try:
+                        await el.press("Meta+A")
+                        await el.press("Backspace")
+                    except Exception:
+                        pass
 
-                # Prefer fill (instant) then Enter; fall back to slow typing; then JS.
+                # Fast path: fill + Enter. Avoid slow typing on fast domains.
                 try:
                     await el.fill(text)
                     await el.press("Enter")
                 except Exception:
-                    try:
-                        await el.type(text, delay=5)
-                        await el.press("Enter")
-                    except Exception:
+                    if fast:
                         # Last resort: JS set + dispatch
                         if not await self._set_input_value_js(sel, text):
                             raise
+                    else:
+                        try:
+                            await el.type(text, delay=5)
+                            await el.press("Enter")
+                        except Exception:
+                            if not await self._set_input_value_js(sel, text):
+                                raise
 
-                # If Google blocks with CAPTCHA after submit, wait/raise accordingly.
+                # Wait briefly for results to appear (Google)
                 try:
-                    await self.page.wait_for_load_state("domcontentloaded", timeout=15000)
+                    await self.page.wait_for_load_state("domcontentloaded", timeout=load_timeout)
                 except Exception:
                     pass
+
+                # A quick signal for Google results: presence of results container.
+                if fast:
+                    try:
+                        await self.page.wait_for_selector("#search, .g, h3", timeout=2500)
+                    except Exception:
+                        pass
 
                 await self._handle_captcha_if_present("after submit")
 
@@ -279,7 +366,10 @@ class SystemChromeBrowserExecutor:
 
             except Exception as e:
                 last_error = e
-                # If a CAPTCHA is present, don't waste time trying other selectors.
+                try:
+                    await self._quick_recover_ui()
+                except Exception:
+                    pass
                 try:
                     await self._handle_captcha_if_present("during typing")
                 except Exception as captcha_err:
@@ -551,7 +641,35 @@ class SystemChromeBrowserExecutor:
         except Exception:
             pass
 
-    async def attach_to_cdp_tab(self, *, cdp_endpoint: str | None = None, tab_url: str | None = None) -> None:
+    async def _page_has_marker(self, page, marker: str) -> bool:
+        """Check whether a Playwright page contains the marker injected by the extension."""
+        if not marker:
+            return False
+        try:
+            # Fast path: window variable
+            v = await page.evaluate("() => window.__SECURE_AGENT_MARKER || window.__AGENT_MARKER || null")
+            if v == marker:
+                return True
+        except Exception:
+            pass
+        try:
+            # Fallback: meta tag (avoid complex escaping in python string literals)
+            js = """(m) => {
+                const el = document.querySelector('meta[name="secure-agent-marker"]');
+                return (el && el.getAttribute('content')) === m;
+            }"""
+            v = await page.evaluate(js, marker)
+            return bool(v)
+        except Exception:
+            return False
+
+    async def attach_to_cdp_tab(
+        self,
+        *,
+        cdp_endpoint: str | None = None,
+        tab_url: str | None = None,
+        marker: str | None = None,
+    ) -> None:
         """Attach to an existing Chrome instance via CDP (remote debugging).
 
         This enables running the agent on a user-controlled tab (e.g., from a browser extension).
@@ -559,6 +677,7 @@ class SystemChromeBrowserExecutor:
         Args:
             cdp_endpoint: e.g. http://127.0.0.1:9222
             tab_url: optional substring to pick a matching tab; if omitted, uses the first page.
+            marker: optional extension-generated marker to pick the exact tab.
         """
         if cdp_endpoint:
             self._cdp_endpoint = cdp_endpoint
@@ -575,28 +694,37 @@ class SystemChromeBrowserExecutor:
         # In CDP mode, the browser returns one or more contexts.
         contexts = list(self.browser.contexts)
         if not contexts:
-            # Create a context if none exist (rare)
             self.context = await self.browser.new_context()
         else:
             self.context = contexts[0]
 
-        # Find an existing page
         pages = list(self.context.pages)
         if not pages:
             self.page = await self.context.new_page()
         else:
-            if tab_url:
-                match = None
+            picked = None
+
+            # 1) Exact match via marker
+            if marker:
                 for p in pages:
                     try:
-                        if tab_url in (p.url or ""):
-                            match = p
+                        if await self._page_has_marker(p, marker):
+                            picked = p
                             break
                     except Exception:
                         continue
-                self.page = match or pages[0]
-            else:
-                self.page = pages[0]
+
+            # 2) Fallback via URL substring
+            if not picked and tab_url:
+                for p in pages:
+                    try:
+                        if tab_url in (p.url or ""):
+                            picked = p
+                            break
+                    except Exception:
+                        continue
+
+            self.page = picked or pages[0]
 
         self._initialized = True
         try:

@@ -41,6 +41,8 @@ class RunOnActiveTabRequest(BaseModel):
     task: str
     tabId: Optional[int] = None
     tabUrl: Optional[str] = None
+    # Extension-generated per-run marker used to map to the exact tab via CDP.
+    marker: Optional[str] = None
     # Optional override; defaults to CDP_ENDPOINT env or http://127.0.0.1:9222
     cdpEndpoint: Optional[str] = None
     max_steps: Optional[int] = 15
@@ -266,8 +268,12 @@ async def run_on_active_tab(request: RunOnActiveTabRequest):
 
         cdp_endpoint = request.cdpEndpoint or os.getenv("CDP_ENDPOINT") or "http://127.0.0.1:9222"
 
-        # Attach first (select tab by URL substring when available)
-        await agent_controller.attach_to_existing_tab(cdp_endpoint=cdp_endpoint, tab_url=request.tabUrl)
+        # Attach first (prefer exact marker match when available; fallback to URL substring)
+        await agent_controller.attach_to_existing_tab(
+            cdp_endpoint=cdp_endpoint,
+            tab_url=request.tabUrl,
+            marker=request.marker,
+        )
 
         agent_task = AgentTask(
             task_id=str(uuid.uuid4()),

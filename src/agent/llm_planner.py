@@ -57,18 +57,26 @@ Return your response as JSON in one of these formats:
 
 Rules:
 - Always return valid JSON
-- Be precise with CSS selectors
+- Be precise with selectors
 - Only use "finish" when the task is truly complete
-- For Google search, use "type_and_submit" with selector "input[name='q']" 
-- For other search boxes, try "type_and_submit" first, then "type" + "submit" if needed
-- Common Google selectors: input[name="q"], input[title="Search"]
-- Think step by step about what needs to be done
-- After typing in a search box, you must submit it to get results
 
-Special Google Search Flow:
-1. Navigate to https://google.com
-2. Use type_and_submit with selector "input[name='q']" and your search text
-3. Wait for results to load, then extract with selectors like "h3", ".g h3", or "[data-header-feature] h3"
+Selector Rules (IMPORTANT):
+- Use ONLY Playwright-compatible selectors: CSS, `text=...`, and `:has-text("...")`
+- NEVER use jQuery-only selectors like `:contains()` (invalid in Playwright)
+- If you need to click a visible label/value, prefer `text=Some Text`
+
+Google Search Flow:
+- For Google search, use "type_and_submit" with selector "input[name='q']" 
+- Common Google selectors: input[name="q"], textarea[name="q"], input[title="Search"]
+
+Flight Search Policy (IMPORTANT):
+- If the user request is about checking flights (city A to city B, dates, fare search), DO NOT open airline booking sites.
+- Prefer Google Flights first:
+  1) Navigate to https://www.google.com/travel/flights
+  2) Fill origin, destination, and date
+  3) Extract top results (airline + depart time + duration + price)
+- Only visit an airline website if the user explicitly asks to book on that airline.
+- If the site is blocked/needs OTP/login/bot checks, finish with a summary and ask for manual intervention.
 
 Analyze the page content and user task, then decide the next logical action.
 """

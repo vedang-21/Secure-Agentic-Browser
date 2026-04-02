@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Secure Agent Firewall</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 350px;
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: linear-gradient(135deg, #1a1c2c 0%, #4a1942 100%);
+      color: #fff;
+      padding-bottom: 20px;
+    }
+
+    .header {
+      padding: 18px;
+      text-align: center;
+      background: rgba(0, 0, 0, 0.2);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .header h1 {
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      letter-spacing: 1px;
+    }
+
+    .action-section {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    /* Modern Search Bar Style */
+    .search-container {
+      position: relative;
+      width: 100%;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 14px 14px 14px 40px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.05);
+      color: white;
+      font-size: 13px;
+      outline: none;
+      transition: all 0.3s ease;
+    }
+
+    input[type="text"]:focus {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: #a78bfa;
+      box-shadow: 0 0 15px rgba(167, 139, 250, 0.3);
+    }
+
+    /* Search Icon Placeholder */
+    .search-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      opacity: 0.5;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    #executeBtn {
+      background: #7c3aed;
+      border: none;
+    }
+
+    #executeBtn:hover {
+      background: #8b5cf6;
+    }
+
+    /* Output Area */
+    .output-container {
+      margin-top: 10px;
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 10px;
+      padding: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    #status {
+      font-size: 11px;
+      color: #a78bfa;
+      margin-bottom: 8px;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+
+    #log {
+      font-size: 11px;
+      font-family: 'Consolas', monospace;
+      color: #d1d5db;
+      max-height: 120px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="header">
+    <h1>🛡️ AGENT FIREWALL</h1>
+  </div>
+
+  <div class="action-section">
+    <div class="search-container">
+      <span class="search-icon">🔍</span>
+      <input id="task" type="text" placeholder="Type agent command..." autofocus />
+    </div>
+
+    <div class="btn-group">
+      <button class="btn" id="analyzeBtn">Scan Page</button>
+      <button class="btn" id="executeBtn">Run Action</button>
+    </div>
+
+    <div class="output-container">
+      <div id="status">System Ready</div>
+      <pre id="log">Waiting for instruction...</pre>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+
+</html>

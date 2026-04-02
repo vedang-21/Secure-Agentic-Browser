@@ -84,12 +84,40 @@ class AgentController:
         self.browser_executor = BrowserExecutor()
         self.firewall_client = FirewallClient()
         self.current_task: Optional[AgentTask] = None
+        # Stall detection
+        self._stall_count: int = 0
+        self._last_page_fingerprint: str = ""
 
-    async def attach_to_existing_tab(self, *, cdp_endpoint: str, tab_url: Optional[str] = None) -> None:
-        """Attach the executor to an already-open Chrome tab via CDP."""
+    def _fingerprint_page(self, page_text: str) -> str:
+        """Cheap fingerprint to detect whether the page is changing."""
+        t = (page_text or "").strip()
+        return (t[:800] + t[-800:]) if len(t) > 1600 else t
+
+    async def _attempt_recovery(self) -> None:
+        """Best-effort recovery when stuck on a page."""
+        if hasattr(self.browser_executor, "_quick_recover_ui"):
+            try:
+                await self.browser_executor._quick_recover_ui()  # type: ignore[attr-defined]
+            except Exception:
+                pass
+        # Optional: one reload attempt
+        try:
+            if getattr(self.browser_executor, "page", None):
+                await self.browser_executor.page.reload(wait_until="domcontentloaded", timeout=15000)  # type: ignore[union-attr]
+        except Exception:
+            pass
+
+    async def attach_to_existing_tab(self, *, cdp_endpoint: str, tab_url: Optional[str] = None, marker: Optional[str] = None) -> None:
+        """Attach the executor to an already-open Chrome tab via CDP.
+
+        Args:
+            cdp_endpoint: Chrome remote debugging endpoint.
+            tab_url: Optional URL substring fallback selection.
+            marker: Optional extension-generated marker for exact tab targeting.
+        """
         if not hasattr(self.browser_executor, "attach_to_cdp_tab"):
             raise RuntimeError("Configured browser executor does not support CDP attach")
-        await self.browser_executor.attach_to_cdp_tab(cdp_endpoint=cdp_endpoint, tab_url=tab_url)
+        await self.browser_executor.attach_to_cdp_tab(cdp_endpoint=cdp_endpoint, tab_url=tab_url, marker=marker)
 
     async def execute_task(self, task: AgentTask) -> Dict[str, Any]:
         """
@@ -98,7 +126,9 @@ class AgentController:
         """
         self.current_task = task
         task.status = AgentStatus.RUNNING
-        
+        self._stall_count = 0
+        self._last_page_fingerprint = ""
+
         try:
             # === TASK START LOGGING ===
             agent_log.info("=" * 80)
@@ -121,6 +151,29 @@ class AgentController:
                 # 1. OBSERVE: Get current page state
                 agent_log.info("👀 Observing current page state...")
                 page_content = await self._observe_page_content()
+
+                # Stall detection: if page isn't changing across steps, recover/bail.
+                fp = self._fingerprint_page(page_content)
+                if fp and fp == self._last_page_fingerprint:
+                    self._stall_count += 1
+                else:
+                    self._stall_count = 0
+                    self._last_page_fingerprint = fp
+
+                if self._stall_count >= 3:
+                    agent_log.warning("🧩 Detected stalled progress (page unchanged for 3 steps). Attempting recovery...")
+                    await self._attempt_recovery()
+
+                if self._stall_count >= 5:
+                    agent_log.error("🛑 Agent appears stuck (page unchanged for 5 steps). Finishing with manual-intervention notice.")
+                    task.status = AgentStatus.FINISHED
+                    task.result = {
+                        "status": "stalled",
+                        "summary": "Agent got stuck on a dynamic/blocked page. Manual intervention required or use an alternate site.",
+                        "url": getattr(getattr(self.browser_executor, "page", None), "url", None),
+                    }
+                    break
+
                 page_preview = page_content[:100] + "..." if len(page_content) > 100 else page_content
                 agent_log.info(f"📄 Page content preview: {page_preview}")
                 
