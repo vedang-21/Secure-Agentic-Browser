@@ -93,6 +93,17 @@ downloads/
 temp_browser/
 
 # =============================================================================
+# BROWSER PROFILES / CHROME AGENT
+# =============================================================================
+# Local Chrome profile used by the agent (large + contains credentials/state)
+.chrome-agent-profile/
+
+# Common Chromium/Playwright user-data dirs (project-local)
+chrome-user-data/
+chromium-user-data/
+playwright-user-data/
+
+# =============================================================================
 # PROCESS & RUNTIME FILES
 # =============================================================================
 *.pid
