@@ -33,8 +33,24 @@ function isRestrictedUrl(url) {
 }
 
 async function getApiBaseUrl() {
+    // Default to the FastAPI server port used by main.py
     const { apiBaseUrl } = await chrome.storage.local.get({ apiBaseUrl: 'http://127.0.0.1:8001' });
     return apiBaseUrl;
+}
+
+async function captureActiveTabDom(tabId) {
+    const [{ result }] = await chrome.scripting.executeScript({
+        target: { tabId },
+        world: 'MAIN',
+        func: () => {
+            return {
+                url: location.href,
+                title: document.title,
+                html: document.documentElement ? document.documentElement.outerHTML : ''
+            };
+        }
+    });
+    return result;
 }
 
 // Main Execution Logic
@@ -111,9 +127,65 @@ document.getElementById('executeBtn').addEventListener('click', async () => {
 });
 
 // Scan Button logic
-document.getElementById('analyzeBtn').addEventListener('click', () => {
-    updateUI('Scanning...', 'Analyzing DOM for security vulnerabilities...');
-    setTimeout(() => {
-        updateUI('Secure', 'Page analysis complete. No threats found.');
-    }, 1000);
+document.getElementById('analyzeBtn').addEventListener('click', async () => {
+    try {
+        updateUI('Scanning...', 'Extracting DOM from active tab...');
+        const tab = await getActiveTab();
+
+        if (isRestrictedUrl(tab.url)) {
+            updateUI('Error', `Cannot analyze restricted page: ${tab.url}`);
+            return;
+        }
+
+        const apiBaseUrl = await getApiBaseUrl();
+        const dom = await captureActiveTabDom(tab.id);
+
+        // Prefer a dedicated endpoint if present; otherwise fall back to a general analyze.
+        const payload = {
+            tabId: tab.id,
+            tabUrl: tab.url || dom.url || '',
+            title: dom.title || '',
+            page_content: dom.html,
+            goal: document.getElementById('task').value.trim() || ''
+        };
+
+        updateUI('Scanning...', `Sending DOM to analyzer at ${apiBaseUrl}...`);
+
+        // Try common endpoints in order.
+        const endpoints = [
+            '/api/v1/firewall/analyze_page',
+            '/api/v1/firewall/analyze',
+            '/api/v1/agent/analyze_page'
+        ];
+
+        let response = null;
+        let data = null;
+        let lastErr = null;
+
+        for (const ep of endpoints) {
+            try {
+                response = await fetch(`${apiBaseUrl}${ep}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                data = await response.json().catch(() => ({}));
+                if (response.ok) {
+                    updateUI('Analysis Complete', data);
+                    return;
+                }
+            } catch (e) {
+                lastErr = e;
+            }
+        }
+
+        if (response) {
+            updateUI('API Error', { status: response.status, body: data });
+            return;
+        }
+
+        updateUI('System Error', lastErr && lastErr.message ? lastErr.message : String(lastErr));
+    } catch (err) {
+        updateUI('System Error', err && err.message ? err.message : String(err));
+    }
 });

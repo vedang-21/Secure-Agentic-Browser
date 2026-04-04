@@ -13,6 +13,31 @@ A sophisticated Python AI agent system that provides secure, autonomous browser 
 - **📁 Organized Testing**: Comprehensive test suite in dedicated directory
 - **🔧 Environment Management**: Secure .env configuration with automatic loading
 
+## 🧠 Persistent Memory (SQLite + FTS “RAG-lite”)
+
+The agent maintains **persistent local memory** in `agent_memory.db` using **SQLite + FTS5** (full-text search).
+
+### What is stored
+- Step summaries (action + outcome)
+- URL + (best-effort) page title
+- Truncated page snapshot
+- Safety metadata when available: `trusted`, `risk_score`
+
+### How it improves task success + safety
+Before planning each step, the agent retrieves relevant memories and injects them into the planner as `[MEMORY]` context.
+Retrieved memories are **re-ranked** to prefer:
+1) trusted, 2) lower-risk, 3) same-domain, 4) same-task.
+
+### Configure
+Set a custom location for the DB:
+```bash
+AGENT_MEMORY_DB=/absolute/path/to/agent_memory.db
+```
+
+### Notes
+- This is dependency-free (no vector DB / embeddings) and works offline.
+- If you want semantic retrieval later, we can add embeddings on top of the same schema.
+
 ## 🏗️ Architecture
 
 ```
@@ -96,35 +121,37 @@ GET /api/v1/task-status
 
 - **type_and_submit**: Type and immediately submit (perfect for search boxes)
   ```json
-  {"action": "type_and_submit", "selector": "input[name='q']", "text": "AI agents"}
+  {"action": "type_and_submit", "selector": "input[name='search']", "text": "search query"}
   ```
 
-- **submit**: Submit a form or press Enter
+- **submit**: Submit a form
   ```json
-  {"action": "submit", "selector": "input[name='search']"}
+  {"action": "submit", "selector": "form#search-form"}
   ```
 
-- **extract**: Extract data from page
+- **extract**: Extract text from the page
   ```json
-  {"action": "extract", "selector": ".results"}
+  {"action": "extract", "selector": ".result-item", "attribute": "innerText"}
   ```
 
-- **finish**: Complete the task
+- **finish**: Finish the task and clean up
   ```json
-  {"action": "finish", "summary": "Task completed successfully"}
+  {"action": "finish"}
   ```
 
-## 🛡️ Security Features
+## 🔑 Authentication
 
-The firewall validates actions against:
-- **Blocked domains and dangerous URLs**: Prevents navigation to malicious sites
-- **JavaScript URL protection**: Blocks `javascript:` URLs and inline scripts  
-- **File operation restrictions**: Prevents unauthorized file system access
-- **Input validation**: Sanitizes all user inputs and selectors
-- **Risk factor analysis**: Multi-layered security assessment
-- **External firewall API integration**: Optional external security validation
+### Google API Key
 
-## ⚙️ Configuration
+This system requires a valid Google API key with access to Gemini 2.5 Flash.
+
+#### Set up your API key
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select an existing one
+3. Navigate to **APIs & Services > Credentials**
+4. Click on **Create credentials** and select **API key**
+5. Restrict the key to specific IPs and services for security
+6. Copy the API key and set it in your environment
 
 ### Environment Variables (.env file)
 ```bash
@@ -150,6 +177,9 @@ USE_EXTERNAL_FIREWALL=false
 FIREWALL_API_URL=http://localhost:3001/api/validate
 ENABLE_FIREWALL=true
 STRICT_MODE=true
+
+# Optional - Persistent memory
+AGENT_MEMORY_DB=agent_memory.db
 ```
 
 ### Firewall Customization

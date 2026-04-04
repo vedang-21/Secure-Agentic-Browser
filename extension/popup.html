@@ -4,46 +4,111 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Secure Agent Firewall</title>
+  <title>Agent Firewall</title>
   <style>
-    * {
+    *,
+    *::before,
+    *::after {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      transition: none !important;
+      border-radius: 0 !important;
     }
 
     body {
-      width: 350px;
+      width: 320px;
       font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      background: linear-gradient(135deg, #1a1c2c 0%, #4a1942 100%);
-      color: #fff;
-      padding-bottom: 20px;
+      background: #000;
+      background: linear-gradient(180deg, #000000 0%, #0a0a0a 100%);
+      color: #ffffff;
+      border: 2px solid #ff6b35;
     }
 
     .header {
-      padding: 18px;
-      text-align: center;
-      background: rgba(0, 0, 0, 0.2);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 20px;
+      background: #050505;
+      border-bottom: 2px solid #333;
+      position: relative;
+    }
+
+    .header::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, #ff6b35, #ff8c42, #ffa500);
+      box-shadow: 0 0 8px rgba(255, 107, 53, 0.6);
     }
 
     .header h1 {
       font-size: 16px;
+      font-weight: 700;
       display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 8px;
+      gap: 10px;
+      color: #ffffff;
+      margin-bottom: 8px;
+      text-transform: uppercase;
       letter-spacing: 1px;
+    }
+
+    .header .subtitle {
+      font-size: 14px;
+      color: #ff8c42;
+      font-weight: 600;
     }
 
     .action-section {
       padding: 20px;
       display: flex;
       flex-direction: column;
-      gap: 15px;
+      gap: 20px;
     }
 
-    /* Modern Search Bar Style */
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 10px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 12px 10px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      background: #0a0a0a;
+      color: #888;
+      border: 2px solid #333;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.5);
+    }
+
+    .tab-btn:hover {
+      color: #ffffff;
+      border-color: #ff6b35;
+      box-shadow: 0 0 10px rgba(255, 107, 53, 0.4), inset 0 0 10px rgba(255, 107, 53, 0.2);
+    }
+
+    .tab-btn:active,
+    .tab-btn:focus {
+      background: #111;
+      color: #ffa500;
+      border-color: #ffa500;
+      box-shadow: 0 0 15px rgba(255, 165, 0, 0.6), inset 0 0 15px rgba(255, 165, 0, 0.3);
+      outline: none;
+    }
+
+    /* Input area */
     .search-container {
       position: relative;
       width: 100%;
@@ -52,85 +117,89 @@
     input[type="text"] {
       width: 100%;
       padding: 14px 14px 14px 40px;
-      border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      background: rgba(255, 255, 255, 0.05);
-      color: white;
-      font-size: 13px;
+      border: 2px solid #333;
+      background: #0a0a0a;
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 600;
       outline: none;
-      transition: all 0.3s ease;
+      font-family: inherit;
+      box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.5);
+    }
+
+    input[type="text"]::placeholder {
+      color: #666;
     }
 
     input[type="text"]:focus {
-      background: rgba(255, 255, 255, 0.1);
-      border-color: #a78bfa;
-      box-shadow: 0 0 15px rgba(167, 139, 250, 0.3);
+      border-color: #ff8c42;
+      box-shadow: 0 0 12px rgba(255, 140, 66, 0.5), inset 0 0 5px rgba(255, 140, 66, 0.2);
     }
 
-    /* Search Icon Placeholder */
     .search-icon {
       position: absolute;
       left: 14px;
       top: 50%;
       transform: translateY(-50%);
-      opacity: 0.5;
-    }
-
-    .btn-group {
-      display: flex;
-      gap: 10px;
-    }
-
-    .btn {
-      flex: 1;
-      padding: 12px;
-      border-radius: 8px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      background: rgba(255, 255, 255, 0.1);
-      color: white;
-    }
-
-    .btn:hover {
-      background: rgba(255, 255, 255, 0.2);
-    }
-
-    #executeBtn {
-      background: #7c3aed;
-      border: none;
-    }
-
-    #executeBtn:hover {
-      background: #8b5cf6;
+      font-size: 16px;
+      color: #ff8c42;
     }
 
     /* Output Area */
     .output-container {
-      margin-top: 10px;
-      background: rgba(0, 0, 0, 0.4);
-      border-radius: 10px;
-      padding: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.05);
+      background: #0a0a0a;
+      padding: 15px;
+      border: 2px solid #333;
+      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.8);
     }
 
     #status {
-      font-size: 11px;
-      color: #a78bfa;
-      margin-bottom: 8px;
-      font-weight: bold;
+      font-size: 14px;
+      color: #ff8c42;
+      margin-bottom: 12px;
+      font-weight: 700;
       text-transform: uppercase;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #status::before {
+      content: '■';
+      font-size: 12px;
+      color: #ff6b35;
+      text-shadow: 0 0 8px #ff6b35;
     }
 
     #log {
-      font-size: 11px;
-      font-family: 'Consolas', monospace;
-      color: #d1d5db;
+      font-size: 14px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      color: #ccc;
       max-height: 120px;
       overflow-y: auto;
       white-space: pre-wrap;
+      background: #000;
+      padding: 12px;
+      border: 1px solid #222;
+    }
+
+    ::-webkit-scrollbar {
+      width: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #050505;
+      border-left: 1px solid #222;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #333;
+      border: 1px solid #111;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #ff6b35;
     }
   </style>
 </head>
@@ -138,23 +207,24 @@
 <body>
 
   <div class="header">
-    <h1>🛡️ AGENT FIREWALL</h1>
+    <h1>Agent Firewall</h1>
+    <div class="subtitle">Secure Agentic Browser Protection</div>
   </div>
 
   <div class="action-section">
-    <div class="search-container">
-      <span class="search-icon">🔍</span>
-      <input id="task" type="text" placeholder="Type agent command..." autofocus />
+    <div class="tabs">
+      <button class="tab-btn" id="analyzeBtn">Analyze Web Page</button>
+      <button class="tab-btn" id="executeBtn">Execute Action</button>
     </div>
 
-    <div class="btn-group">
-      <button class="btn" id="analyzeBtn">Scan Page</button>
-      <button class="btn" id="executeBtn">Run Action</button>
+    <div class="search-container">
+      <span class="search-icon"></span>
+      <input id="task" type="text" placeholder="Enter target objective..." autofocus />
     </div>
 
     <div class="output-container">
       <div id="status">System Ready</div>
-      <pre id="log">Waiting for instruction...</pre>
+      <pre id="log">Awaiting instruction...</pre>
     </div>
   </div>
 

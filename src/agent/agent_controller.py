@@ -1,11 +1,13 @@
 import asyncio
 import logging
+import json
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 from enum import Enum
 from .llm_planner import LLMPlanner
 from .system_chrome_executor import SystemChromeBrowserExecutor as BrowserExecutor
 from .firewall_client import FirewallClient
+from src.memory.sqlite_memory import SQLiteMemoryStore
 
 # Configure agent-specific logger
 logger = logging.getLogger(__name__)
@@ -83,6 +85,7 @@ class AgentController:
         self.llm_planner = LLMPlanner()
         self.browser_executor = BrowserExecutor()
         self.firewall_client = FirewallClient()
+        self.memory = SQLiteMemoryStore()
         self.current_task: Optional[AgentTask] = None
         # Stall detection
         self._stall_count: int = 0
@@ -152,6 +155,16 @@ class AgentController:
                 agent_log.info("👀 Observing current page state...")
                 page_content = await self._observe_page_content()
 
+                # Retrieve relevant memory before planning (RAG-style)
+                try:
+                    url = getattr(getattr(self.browser_executor, "page", None), "url", "") or ""
+                    mem_query = f"{task.user_request}\n{url}\n{page_content[:800]}"
+                    memories = self.memory.search(query=mem_query, limit=8)
+                    memories = self.memory.rerank(items=memories, current_url=url, current_task=task.user_request)[:5]
+                    memory_ctx = self.memory.build_context_snippet(memories)
+                except Exception:
+                    memory_ctx = ""
+
                 # Stall detection: if page isn't changing across steps, recover/bail.
                 fp = self._fingerprint_page(page_content)
                 if fp and fp == self._last_page_fingerprint:
@@ -180,8 +193,8 @@ class AgentController:
                 # 2. AI DECISION: Use LLM to decide next action
                 agent_log.info("🧠 AI analyzing page and deciding next action...")
                 planned_action = await self.llm_planner.decide_next_action(
-                    task.user_request, 
-                    page_content
+                    task.user_request,
+                    (f"[MEMORY]\n{memory_ctx}\n\n[PAGE]\n{page_content}" if memory_ctx else page_content),
                 )
                 
                 # === PROPOSED ACTION LOGGING ===
@@ -238,7 +251,44 @@ class AgentController:
                 # 5. POST-ACTION OBSERVATION: Read the updated page
                 agent_log.info("📖 Reading updated page after action...")
                 updated_page_content = await self._observe_page_content()
-                
+
+                # Persist step outcome to memory
+                try:
+                    url_now = getattr(getattr(self.browser_executor, "page", None), "url", "") or ""
+                    title_now = ""
+                    if getattr(self.browser_executor, "page", None):
+                        try:
+                            title_now = await self.browser_executor.page.title()  # type: ignore[union-attr]
+                        except Exception:
+                            title_now = ""
+
+                    # Attempt to read current risk verdict from firewall context (if available)
+                    trusted = bool(page_context.get("trusted_domain", False)) if isinstance(page_context, dict) else False
+                    risk_score = 0.0
+                    if isinstance(page_context, dict):
+                        try:
+                            risk_score = float(page_context.get("risk_score", 0.0) or 0.0)
+                        except Exception:
+                            risk_score = 0.0
+
+                    self.memory.add(
+                        kind="step",
+                        task_id=task.task_id,
+                        url=url_now,
+                        title=title_now,
+                        summary=f"step={task.current_step} action={action_type} status={'error' if 'Error:' in execution_result else 'ok'}",
+                        content=(updated_page_content or "")[:4000],
+                        metadata={
+                            "user_request": task.user_request,
+                            "action": planned_action,
+                            "execution_result": execution_result[:800],
+                            "trusted": trusted,
+                            "risk_score": risk_score,
+                        },
+                    )
+                except Exception:
+                    pass
+
                 # Show what changed on the page
                 if updated_page_content != page_content:
                     agent_log.info("🔄 Page content has changed after action")
@@ -307,6 +357,21 @@ class AgentController:
             if task.result:
                 agent_log.info(f"📝 Summary: {task.result.get('summary', 'No summary available')}")
             agent_log.info("=" * 80)
+            
+            # Store final outcome
+            try:
+                url_final = getattr(getattr(self.browser_executor, "page", None), "url", "") or ""
+                self.memory.add(
+                    kind="final",
+                    task_id=task.task_id,
+                    url=url_final,
+                    title="",
+                    summary=f"task_finished status={task.status.value}",
+                    content=json.dumps(task.result or {}, ensure_ascii=False) if isinstance(task.result, dict) else str(task.result or ""),
+                    metadata={"user_request": task.user_request, "trusted": True, "risk_score": 0.0},
+                )
+            except Exception:
+                pass
             
             return {
                 "task_id": task.task_id,
