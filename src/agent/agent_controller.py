@@ -146,21 +146,28 @@ class AgentController:
             while task.current_step < task.max_steps and task.status == AgentStatus.RUNNING:
                 task.current_step += 1
                 step_start_time = asyncio.get_event_loop().time()
-                
+
                 # === STEP START LOGGING ===
                 agent_log.info(f"\n🔄 AGENT STEP {task.current_step}")
                 agent_log.info("-" * 50)
-                
+
                 # 1. OBSERVE: Get current page state
                 agent_log.info("👀 Observing current page state...")
                 page_content = await self._observe_page_content()
 
+                page_url = getattr(getattr(self.browser_executor, "page", None), "url", "") or ""
+                page_title = ""
+                if getattr(self.browser_executor, "page", None):
+                    try:
+                        page_title = await self.browser_executor.page.title()  # type: ignore[union-attr]
+                    except Exception:
+                        page_title = ""
+
                 # Retrieve relevant memory before planning (RAG-style)
                 try:
-                    url = getattr(getattr(self.browser_executor, "page", None), "url", "") or ""
-                    mem_query = f"{task.user_request}\n{url}\n{page_content[:800]}"
+                    mem_query = f"{task.user_request}\n{page_url}\n{page_content[:800]}"
                     memories = self.memory.search(query=mem_query, limit=8)
-                    memories = self.memory.rerank(items=memories, current_url=url, current_task=task.user_request)[:5]
+                    memories = self.memory.rerank(items=memories, current_url=page_url, current_task=task.user_request)[:5]
                     memory_ctx = self.memory.build_context_snippet(memories)
                 except Exception:
                     memory_ctx = ""
@@ -196,17 +203,37 @@ class AgentController:
                     task.user_request,
                     (f"[MEMORY]\n{memory_ctx}\n\n[PAGE]\n{page_content}" if memory_ctx else page_content),
                 )
-                
+
                 # === PROPOSED ACTION LOGGING ===
                 action_type = planned_action.get('action', 'unknown')
                 action_details = self._format_action_details(planned_action)
-                agent_log.info(f"💭 Proposed action: {action_type} - {action_details}")
-                
+                agent_log.info(f"💬 Proposed action: {action_type} - {action_details}")
+
                 # 3. FIREWALL VALIDATION: Security check with page context
                 agent_log.info("🛡️  Checking firewall with page context...")
                 page_context = await self.browser_executor.get_comprehensive_page_context()
                 validation_result = await self.firewall_client.validate_action(planned_action, page_context)
-                
+
+                # Prepare a base timeline record for this step
+                timeline_step: Dict[str, Any] = {
+                    "step": task.current_step,
+                    "page": {
+                        "url": page_url,
+                        "title": page_title,
+                    },
+                    "proposed_action": planned_action,
+                    "firewall": {
+                        "allowed": bool(validation_result.get("allowed", False)),
+                        "reason": validation_result.get("reason"),
+                        "confidence": validation_result.get("confidence"),
+                        "risk_factors": validation_result.get("risk_factors", []),
+                        "raw": validation_result,
+                    },
+                    "execution": None,
+                    "duration": None,
+                    "status": None,
+                }
+
                 # === FIREWALL DECISION LOGGING ===
                 if validation_result.get('allowed', False):
                     agent_log.info("✅ Firewall: ALLOWED")
@@ -214,40 +241,30 @@ class AgentController:
                     risk_factors = validation_result.get('risk_factors', [])
                     agent_log.info(f"🎯 Confidence: {confidence:.2f}, Risk factors: {len(risk_factors)}")
                     if risk_factors:
-                        agent_log.info(f"⚠️  Risk factors: {risk_factors[:3]}")  # Show first 3
+                        agent_log.info(f"⚠️  Risk factors: {risk_factors[:3]}")
                 else:
                     agent_log.warning("🚫 Firewall: BLOCKED")
                     agent_log.warning(f"🔒 Reason: {validation_result.get('reason', 'Unknown')}")
                     risk_factors = validation_result.get('risk_factors', [])
                     if risk_factors:
                         agent_log.warning(f"🚨 Risk factors: {risk_factors}")
-                    
-                    step_result = {
-                        "step": task.current_step,
-                        "action": planned_action,
-                        "status": "blocked_by_firewall",
-                        "result": f"Security firewall blocked {action_type} action: {validation_result.get('reason', 'Unknown')}",
-                        "page_context_preview": page_content[:200] + "..." if len(page_content) > 200 else page_content,
-                        "duration": asyncio.get_event_loop().time() - step_start_time,
-                        "firewall_result": validation_result
+
+                    step_duration = asyncio.get_event_loop().time() - step_start_time
+                    timeline_step["status"] = "blocked_by_firewall"
+                    timeline_step["duration"] = step_duration
+                    timeline_step["execution"] = {
+                        "status": "blocked",
+                        "result_preview": f"Blocked: {validation_result.get('reason', 'Unknown')}"
                     }
-                    task.steps_log.append(step_result)
-                    
-                    agent_log.info(f"⏭️  Continuing to next step...")
+                    task.steps_log.append(timeline_step)
+
+                    agent_log.info("⏭️  Continuing to next step...")
                     continue
-                
+
                 # 4. EXECUTE: Perform the validated action
                 agent_log.info(f"⚡ Executing {action_type}...")
                 execution_result = await self._execute_action(planned_action)
-                
-                # === EXECUTION RESULT LOGGING ===
-                if "Error:" in execution_result:
-                    agent_log.error(f"❌ Execution failed: {execution_result}")
-                else:
-                    result_preview = execution_result[:150] + "..." if len(execution_result) > 150 else execution_result
-                    agent_log.info(f"✅ Execution successful")
-                    agent_log.info(f"📊 Result preview: {result_preview}")
-                
+
                 # 5. POST-ACTION OBSERVATION: Read the updated page
                 agent_log.info("📖 Reading updated page after action...")
                 updated_page_content = await self._observe_page_content()
@@ -306,22 +323,19 @@ class AgentController:
                 
                 # Calculate step duration
                 step_duration = asyncio.get_event_loop().time() - step_start_time
-                
-                # Log this step with updated page content
-                step_result = {
-                    "step": task.current_step,
-                    "action": planned_action,
-                    "status": "executed",
-                    "result": execution_result[:1000] + "..." if len(execution_result) > 1000 else execution_result,
-                    "duration": step_duration,
-                    "page_before": page_content[:500] + "..." if len(page_content) > 500 else page_content,
-                    "page_after": updated_page_content[:500] + "..." if len(updated_page_content) > 500 else updated_page_content
+
+                timeline_step["status"] = "executed"
+                timeline_step["duration"] = step_duration
+                timeline_step["execution"] = {
+                    "status": "error" if "Error:" in execution_result else "success",
+                    "result_preview": execution_result[:800] + ("..." if len(execution_result) > 800 else ""),
                 }
-                task.steps_log.append(step_result)
-                
+
+                task.steps_log.append(timeline_step)
+
                 # === STEP COMPLETION LOGGING ===
                 agent_log.info(f"⏱️  Step {task.current_step} completed in {step_duration:.2f}s")
-                
+
                 # 7. CHECK COMPLETION: Stop if task is finished
                 if planned_action.get("action") == "finish":
                     agent_log.info("🏁 AI marked task as FINISHED")

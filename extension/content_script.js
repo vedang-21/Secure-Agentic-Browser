@@ -275,6 +275,40 @@
     }
   }
 
+  function formatTimeline(stepsLog) {
+    const steps = Array.isArray(stepsLog) ? stepsLog : [];
+    if (!steps.length) return '';
+
+    const lines = [];
+    lines.push('Timeline');
+    lines.push('========');
+
+    for (const s of steps) {
+      const stepNo = s.step ?? '?';
+      const pageUrl = s.page && s.page.url ? s.page.url : '';
+      const pageTitle = s.page && s.page.title ? s.page.title : '';
+      const action = s.proposed_action || s.action || {};
+      const actionType = action.action || 'unknown';
+      const fw = s.firewall || {}; 
+      const allowed = fw.allowed;
+      const fwReason = fw.reason || (fw.raw && fw.raw.reason) || '';
+      const exec = s.execution || {};
+      const execStatus = exec.status || s.status || '';
+      const execPreview = exec.result_preview || '';
+
+      lines.push(`Step ${stepNo}`);
+      lines.push(`• Page: ${pageTitle ? pageTitle + ' — ' : ''}${pageUrl}`);
+      lines.push(`• Proposed: ${actionType} ${action.selector ? `(selector: ${action.selector})` : ''}${action.url ? `(url: ${action.url})` : ''}`);
+      lines.push(`• Firewall: ${allowed === false ? 'BLOCKED' : allowed === true ? 'ALLOWED' : 'UNKNOWN'}${fwReason ? ` — ${fwReason}` : ''}`);
+      if (execStatus) {
+        lines.push(`• Result: ${execStatus}${execPreview ? ` — ${String(execPreview).slice(0, 180)}` : ''}`);
+      }
+      lines.push('');
+    }
+
+    return lines.join('\n');
+  }
+
   function formatTaskStatus(data) {
     if (!data || typeof data !== 'object') return String(data || '');
 
@@ -289,6 +323,12 @@
     if (req) parts.push(`Objective: ${req}`);
     parts.push(`Status: ${status}`);
     if (step !== null || max !== null) parts.push(`Progress: ${step ?? '?'} / ${max ?? '?'}`);
+
+    const timeline = formatTimeline(data.steps_log);
+    if (timeline) {
+      parts.push('');
+      parts.push(timeline);
+    }
 
     // If backend ever returns result/error in status, show them.
     if (data.error) {

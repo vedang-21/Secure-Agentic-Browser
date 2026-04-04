@@ -37,6 +37,7 @@ class TaskStatusResponse(BaseModel):
     user_request: Optional[str] = None
     result: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
+    steps_log: Optional[list] = None
 
 class RunOnActiveTabRequest(BaseModel):
     task: str
@@ -145,21 +146,24 @@ async def get_task_status():
     """Get the status of the current task."""
     try:
         status = await agent_controller.get_task_status()
-        
+
         if status.get("status") == "no_active_task":
             return TaskStatusResponse(
                 task_id="",
                 status="no_active_task"
             )
-        
+
         return TaskStatusResponse(
             task_id=status.get("task_id", ""),
             status=status.get("status", "unknown"),
             current_step=status.get("current_step"),
             max_steps=status.get("max_steps"),
-            user_request=status.get("user_request")
+            user_request=status.get("user_request"),
+            result=status.get("result"),
+            error=status.get("error"),
+            steps_log=status.get("steps_log"),
         )
-        
+
     except Exception as e:
         logger.error(f"Failed to get task status: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to get task status: {str(e)}")
