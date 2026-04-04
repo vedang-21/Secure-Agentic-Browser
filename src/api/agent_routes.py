@@ -6,6 +6,7 @@ import logging
 import asyncio
 import os
 from ..agent.agent_controller import AgentController, AgentTask
+from firewall.core.security_mediator import SecurityMediator
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -46,6 +47,12 @@ class RunOnActiveTabRequest(BaseModel):
     # Optional override; defaults to CDP_ENDPOINT env or http://127.0.0.1:9222
     cdpEndpoint: Optional[str] = None
     max_steps: Optional[int] = 15
+
+class AnalyzePageRequest(BaseModel):
+    page_content: str
+    goal: Optional[str] = ""
+    tabUrl: Optional[str] = None
+    title: Optional[str] = None
 
 async def run_agent(task: str) -> Dict[str, Any]:
     """
@@ -288,4 +295,25 @@ async def run_on_active_tab(request: RunOnActiveTabRequest):
         raise
     except Exception as e:
         logger.error(f"run_on_active_tab failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/firewall/analyze_page")
+async def analyze_page(request: AnalyzePageRequest):
+    """Analyze current page HTML for threats (DOM/NLP + optional LLM layer)."""
+    try:
+        mediator = SecurityMediator(
+            {
+                "use_llm_layer": True,
+                "llm_threshold": float(os.getenv("FIREWALL_LLM_THRESHOLD", "0.4")),
+                "gemini_api_key": os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"),
+            }
+        )
+        report = mediator.analyze_page(page_content=request.page_content or "", agent_goal=request.goal or "")
+        return {
+            "status": "ok",
+            "tabUrl": request.tabUrl,
+            "title": request.title,
+            "report": report,
+        }
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

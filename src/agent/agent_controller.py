@@ -398,8 +398,10 @@ class AgentController:
         finally:
             # Clean up browser resources
             try:
-                await self.browser_executor.cleanup()
-                agent_log.info("🧹 Browser cleanup completed")
+                # NOTE: Keep browser session alive for extension/side-panel workflows.
+                # Manual cleanup is available via the /api/v1/browser/cleanup endpoint.
+                # await self.browser_executor.cleanup()
+                agent_log.info("🧠 Keeping browser session alive (no auto-cleanup)")
             except Exception as e:
                 agent_log.error(f"🚨 Cleanup error: {str(e)}")
     

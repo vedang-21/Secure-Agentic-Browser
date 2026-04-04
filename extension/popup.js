@@ -53,139 +53,38 @@ async function captureActiveTabDom(tabId) {
     return result;
 }
 
-// Main Execution Logic
-document.getElementById('executeBtn').addEventListener('click', async () => {
-    const taskInput = document.getElementById('task');
-    const task = taskInput.value.trim();
+function getDashboardUrl() {
+    return chrome.runtime.getURL('dashboard.html');
+}
 
-    if (!task) {
-        updateUI('Error', 'Please enter a command in the search bar.');
+async function openDashboard() {
+    const url = getDashboardUrl();
+    const tabs = await chrome.tabs.query({});
+    const existing = tabs.find(t => t.url === url);
+    if (existing && existing.id) {
+        await chrome.tabs.update(existing.id, { active: true });
         return;
     }
+    await chrome.tabs.create({ url });
+}
 
+// Open side panel when the popup is opened/clicked.
+(async () => {
     try {
-        updateUI('Starting...', 'Fetching active tab metadata...');
         const tab = await getActiveTab();
-
-        const apiBaseUrl = await getApiBaseUrl();
-        const marker = generateMarker();
-
-        // Try to inject marker unless on a restricted URL (Chrome blocks script injection there).
-        if (isRestrictedUrl(tab.url)) {
-            updateUI('Note', `Restricted page (${tab.url}). Skipping marker injection.`);
-        } else {
-            try {
-                updateUI('Starting...', `Injecting marker into tab... (${marker})`);
-                await chrome.scripting.executeScript({
-                    target: { tabId: tab.id },
-                    world: 'MAIN',
-                    func: (m) => {
-                        window.__SECURE_AGENT_MARKER = m;
-                        window.__AGENT_MARKER = m;
-                        let meta = document.querySelector('meta[name="secure-agent-marker"]');
-                        if (!meta) {
-                            meta = document.createElement('meta');
-                            meta.setAttribute('name', 'secure-agent-marker');
-                            document.head && document.head.appendChild(meta);
-                        }
-                        meta.setAttribute('content', m);
-                    },
-                    args: [marker]
-                });
-            } catch (e) {
-                // Some pages (Chrome Web Store, internal pages) still block injection.
-                updateUI('Note', `Marker injection blocked (${String(e && e.message ? e.message : e)}). Continuing without marker.`);
-            }
-        }
-
-        const payload = {
-            task: task,
-            tabId: tab.id,
-            tabUrl: tab.url || '',
-            marker: marker
-        };
-
-        updateUI('Processing...', `Sending task to agent at ${apiBaseUrl}`);
-
-        const response = await fetch(`${apiBaseUrl}/api/v1/agent/run_on_active_tab`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        const data = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-            updateUI('API Error', { status: response.status, body: data });
-            return;
-        }
-
-        updateUI('Success', data);
-    } catch (err) {
-        updateUI('System Error', err && err.message ? err.message : String(err));
+        await chrome.sidePanel.open({ tabId: tab.id });
+    } catch {
+        // ignore
     }
+})();
+
+// Keep popup as a lightweight launcher. Side panel is the persistent UI.
+// Replace execute behavior: open dashboard tab
+
+document.getElementById('executeBtn').addEventListener('click', async () => {
+    updateUI('Info', 'Overlay panel is enabled. Open any normal webpage and use the in-page Agent panel (top-right).');
 });
 
-// Scan Button logic
 document.getElementById('analyzeBtn').addEventListener('click', async () => {
-    try {
-        updateUI('Scanning...', 'Extracting DOM from active tab...');
-        const tab = await getActiveTab();
-
-        if (isRestrictedUrl(tab.url)) {
-            updateUI('Error', `Cannot analyze restricted page: ${tab.url}`);
-            return;
-        }
-
-        const apiBaseUrl = await getApiBaseUrl();
-        const dom = await captureActiveTabDom(tab.id);
-
-        // Prefer a dedicated endpoint if present; otherwise fall back to a general analyze.
-        const payload = {
-            tabId: tab.id,
-            tabUrl: tab.url || dom.url || '',
-            title: dom.title || '',
-            page_content: dom.html,
-            goal: document.getElementById('task').value.trim() || ''
-        };
-
-        updateUI('Scanning...', `Sending DOM to analyzer at ${apiBaseUrl}...`);
-
-        // Try common endpoints in order.
-        const endpoints = [
-            '/api/v1/firewall/analyze_page',
-            '/api/v1/firewall/analyze',
-            '/api/v1/agent/analyze_page'
-        ];
-
-        let response = null;
-        let data = null;
-        let lastErr = null;
-
-        for (const ep of endpoints) {
-            try {
-                response = await fetch(`${apiBaseUrl}${ep}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                data = await response.json().catch(() => ({}));
-                if (response.ok) {
-                    updateUI('Analysis Complete', data);
-                    return;
-                }
-            } catch (e) {
-                lastErr = e;
-            }
-        }
-
-        if (response) {
-            updateUI('API Error', { status: response.status, body: data });
-            return;
-        }
-
-        updateUI('System Error', lastErr && lastErr.message ? lastErr.message : String(lastErr));
-    } catch (err) {
-        updateUI('System Error', err && err.message ? err.message : String(err));
-    }
+    updateUI('Info', 'Overlay panel is enabled. Use the in-page Agent panel (top-right) for runs; analysis can be added next.');
 });
