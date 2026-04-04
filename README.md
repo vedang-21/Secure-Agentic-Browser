@@ -1,351 +1,218 @@
-# 🤖 Secure Agentic Browser - AI-Powered Browser Automation
+# Secure Agentic Browser (Agentic-AI)
 
-A sophisticated Python AI agent system that provides secure, autonomous browser automation using **Google Gemini 2.5 Flash** for intelligent decision making and **System Chrome** integration for reliable browser control.
+A local-first **agentic browser + security firewall** stack:
 
-## ✨ Features
+- A FastAPI backend that runs an autonomous web agent **on your current Chrome tab** (CDP attach).
+- A Chrome extension that injects a **persistent in-page overlay panel** (modern “AI browser” UX).
+- A multi-layer **page threat analyzer** (DOM + NLP + optional LLM) with “block/confirm/allow” recommendations.
+- **Persistent agent memory** (SQLite + FTS5) for RAG-style recall across runs.
 
-- **🧠 Autonomous AI Agent**: Gemini 2.5 Flash decides next actions based on current page state
-- **🛡️ Advanced Security Firewall**: Multi-layered validation of all actions before execution
-- **🍎 macOS Optimized**: Uses system Chrome for stability, avoiding bundled Chromium crashes
-- **🏗️ Modular Architecture**: Clean separation of concerns with comprehensive testing
-- **🌐 REST API**: Easy integration with browser extensions and external tools
-- **⚡ Enhanced Actions**: navigate, click, type, type_and_submit, submit, extract, finish
-- **📁 Organized Testing**: Comprehensive test suite in dedicated directory
-- **🔧 Environment Management**: Secure .env configuration with automatic loading
+> Everything runs locally: the extension talks to `http://127.0.0.1:8001`.
 
-## 🧠 Persistent Memory (SQLite + FTS “RAG-lite”)
+---
 
-The agent maintains **persistent local memory** in `agent_memory.db` using **SQLite + FTS5** (full-text search).
+## What you can do
 
-### What is stored
-- Step summaries (action + outcome)
-- URL + (best-effort) page title
-- Truncated page snapshot
-- Safety metadata when available: `trusted`, `risk_score`
+### 1) Run an autonomous agent on the active tab
+- Open any normal webpage.
+- Use the in-page overlay (top-right): **Run**.
+- The backend attaches to the active Chrome tab and executes steps safely.
 
-### How it improves task success + safety
-Before planning each step, the agent retrieves relevant memories and injects them into the planner as `[MEMORY]` context.
-Retrieved memories are **re-ranked** to prefer:
-1) trusted, 2) lower-risk, 3) same-domain, 4) same-task.
+### 2) Analyze the current page for threats
+- Use **Analyze** in the overlay.
+- Sends page HTML to the local firewall and returns a human-readable security report.
 
-### Configure
-Set a custom location for the DB:
+---
+
+## Demo UX (Overlay)
+
+The extension injects a floating panel on normal http(s) pages:
+
+- **Run**: start agent run on this tab
+- **Analyze**: run page threat analysis (DOM/NLP + optional LLM)
+- **Stop**: stop current run
+- **Clear**: clear panel output
+
+If you don’t see the overlay:
+- You’re likely on a restricted page (`chrome://*`, Web Store, etc.)
+- Reload extension and refresh the page
+
+---
+
+## Architecture (high level)
+
+- `main.py` → FastAPI server
+- `src/agent/*` → planner + action execution + CDP attach
+- `firewall/*` + `analysers/*` → multi-layer threat analysis + risk scoring
+- `src/memory/sqlite_memory.py` → persistent memory (SQLite + FTS5)
+- `extension/` → MV3 extension (content script overlay + service worker proxy)
+
+---
+
+## Setup
+
+### 0) Prereqs
+- macOS + Google Chrome installed
+- Python 3.11+
+- A Gemini key if you want the LLM firewall layer
+
+### 1) Install Python deps
 ```bash
-AGENT_MEMORY_DB=/absolute/path/to/agent_memory.db
+python3 -m pip install -r config/requirements.txt
 ```
 
-### Notes
-- This is dependency-free (no vector DB / embeddings) and works offline.
-- If you want semantic retrieval later, we can add embeddings on top of the same schema.
-
-## 🏗️ Architecture
-
-```
-📂 Secure Agentic Browser/
-├── 🔧 src/
-│   ├── 🤖 agent/
-│   │   ├── agent_controller.py       # Main agent loop orchestration
-│   │   ├── llm_planner.py           # Gemini 2.5 Flash decision making
-│   │   ├── system_chrome_executor.py # System Chrome browser automation
-│   │   ├── firewall_client.py       # Advanced security validation
-│   │   └── macos_browser_executor.py # macOS optimized browser handling
-│   └── 🌐 api/
-│       └── agent_routes.py          # FastAPI REST endpoints
-├── 🧪 tests/
-│   ├── quick_test.py               # Comprehensive system test
-│   ├── interactive_demo.py         # Interactive demonstration
-│   ├── diagnostics/diagnose_browser.py         # Browser diagnostics
-│   └── example_browser_executor.py # Usage examples
-├── � config/
-│   ├── .env.template              # Environment template  
-│   ├── requirements.txt           # Python dependencies
-│   └── setup_config.py           # Configuration setup script
-├── 📚 docs/
-│   ├── ENVIRONMENT_SETUP.md       # Environment setup guide
-│   ├── FIREWALL_INTEGRATION.md    # External firewall integration
-│   └── QUICKSTART.md             # Quick start guide
-└── main.py                        # FastAPI server entry point
-```
-
-## 🚀 Quick Start
-
-### 1) Configure environment
-
+### 2) (Optional) Install Playwright browsers
+This project primarily uses **System Chrome**, but Playwright may still be used by some utilities/tests.
 ```bash
-# Recommended interactive setup
-python config/setup_config.py
-
-# (Legacy) environment setup helper
-python config/setup_env.py
+playwright install
 ```
 
-### 2) Start the Server
+### 3) Configure environment
+Create a `.env` (or export env vars) for keys and tuning.
 
+Minimum (LLM features):
 ```bash
-python main.py
+GOOGLE_API_KEY=your_key
 ```
 
-The server will start on `http://localhost:8001`
-
-### 3) API Endpoints
-
-#### Execute Agent Task
+Optional knobs:
 ```bash
-POST /api/v1/agent_execute
-{
-  "task": "Go to Google and search for 'AI agents'"
-}
-```
-
-#### Check Task Status
-```bash
-GET /api/v1/task-status
-```
-
-## 🎯 Supported Actions
-
-- **navigate**: Go to a URL
-  ```json
-  {"action": "navigate", "url": "https://example.com"}
-  ```
-
-- **click**: Click an element
-  ```json
-  {"action": "click", "selector": "#submit-button"}
-  ```
-
-- **type**: Type text into input field
-  ```json
-  {"action": "type", "selector": "input[name='search']", "text": "search query"}
-  ```
-
-- **type_and_submit**: Type and immediately submit (perfect for search boxes)
-  ```json
-  {"action": "type_and_submit", "selector": "input[name='search']", "text": "search query"}
-  ```
-
-- **submit**: Submit a form
-  ```json
-  {"action": "submit", "selector": "form#search-form"}
-  ```
-
-- **extract**: Extract text from the page
-  ```json
-  {"action": "extract", "selector": ".result-item", "attribute": "innerText"}
-  ```
-
-- **finish**: Finish the task and clean up
-  ```json
-  {"action": "finish"}
-  ```
-
-## 🔑 Authentication
-
-### Google API Key
-
-This system requires a valid Google API key with access to Gemini 2.5 Flash.
-
-#### Set up your API key
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select an existing one
-3. Navigate to **APIs & Services > Credentials**
-4. Click on **Create credentials** and select **API key**
-5. Restrict the key to specific IPs and services for security
-6. Copy the API key and set it in your environment
-
-### Environment Variables (.env file)
-```bash
-# Required
-GOOGLE_API_KEY=your_actual_gemini_api_key_here
-
-# Optional - Browser Settings
-BROWSER_HEADLESS=false
-BROWSER_TIMEOUT=30000
-
-# Optional - Server Settings  
-SERVER_HOST=0.0.0.0
+# Server
 SERVER_PORT=8001
-LOG_LEVEL=INFO
 
-# Optional - Agent Settings
-MAX_STEPS_PER_TASK=20
-AGENT_TIMEOUT=300
-DEFAULT_WAIT_TIME=2
+# Firewall
+FIREWALL_LLM_THRESHOLD=0.4
 
-# Optional - Firewall Settings
-USE_EXTERNAL_FIREWALL=false
-FIREWALL_API_URL=http://localhost:3001/api/validate
-ENABLE_FIREWALL=true
-STRICT_MODE=true
-
-# Optional - Persistent memory
+# Memory
 AGENT_MEMORY_DB=agent_memory.db
 ```
 
-### Firewall Customization
-- Configure blocked domains in `src/agent/firewall_client.py`
-- Set external firewall API URL for additional validation
-- Customize security rules and risk factors
-- Enable/disable strict mode for different security levels
-
-### External Firewall Integration
-
-The system supports seamless integration with external firewall APIs:
-
-#### **Current Setup (Local Firewall)**
-```env
-USE_EXTERNAL_FIREWALL=false
-```
-- Uses built-in security rules for immediate protection
-- Validates against dangerous URLs, sensitive fields, and suspicious patterns
-- Always active as the first line of defense
-
-#### **Future Setup (External Firewall)**
-When your team's firewall API is ready on localhost:
-```env
-USE_EXTERNAL_FIREWALL=true
-FIREWALL_API_URL=http://localhost:3001/api/validate
-FIREWALL_API_KEY=your_firewall_api_key
+### 4) Start the API server
+```bash
+python3 main.py
 ```
 
-#### **External Firewall API Specification**
+Health check:
+- `GET http://127.0.0.1:8001/api/v1/health`
 
-**Input Format (what your firewall receives):**
+---
+
+## Install the Chrome extension
+
+1. Go to `chrome://extensions`
+2. Enable **Developer mode**
+3. **Load unpacked** → select the `extension/` folder
+4. Open any normal webpage → overlay appears top-right
+
+Notes:
+- The extension uses a MV3 service worker (`extension/background.js`) to proxy requests to the local API.
+- If you change extension files, hit **Reload** in `chrome://extensions`.
+
+---
+
+## API endpoints (used by the extension)
+
+### Run agent on the active tab
+`POST /api/v1/agent/run_on_active_tab`
 ```json
 {
-  "action": {
-    "action": "type",
-    "selector": "input[name='password']",
-    "text": "mypassword"
-  },
-  "page_context": {
-    "url": "https://example.com/login",
-    "title": "Login Page",
-    "html_content": "<html>...</html>",
-    "visible_text": "Login to your account...",
-    "javascript_present": true,
-    "forms": [{"action": "/login", "method": "post", "https": true}],
-    "inputs": [{"type": "password", "name": "password", "selector": "input[name='password']"}],
-    "links": [...],
-    "meta_data": {...},
-    "security_headers": {...},
-    "cookies": [...],
-    "page_size": 45000
-  }
+  "task": "go to amazon and search for nothing phones",
+  "tabId": 123,
+  "tabUrl": "https://example.com",
+  "marker": "uuid",
+  "max_steps": 15
 }
 ```
 
-**Expected Response Format:**
+### Poll status
+`GET /api/v1/task-status`
+
+### Stop current run
+`POST /api/v1/stop-task`
+
+### Analyze current page
+`POST /api/v1/firewall/analyze_page`
 ```json
 {
-  "allowed": true,
-  "reason": "Action passed all security checks", 
-  "source": "external",
-  "confidence": 0.95,
-  "risk_factors": ["https_secure_connection", "trusted_domain"],
-  "risk_level": "low",
-  "analysis": {
-    "domain_reputation": "good",
-    "ssl_check": "valid",
-    "content_safety": "clean", 
-    "form_analysis": "secure"
-  },
-  "timestamp": "2024-03-06T10:30:45Z",
-  "processing_time_ms": 250
+  "page_content": "<html>…</html>",
+  "goal": "optional agent goal",
+  "tabUrl": "https://example.com",
+  "title": "Page title"
 }
 ```
 
-#### **Testing External Firewall**
+---
+
+## Threat analysis (Firewall)
+
+The `SecurityMediator` runs a layered inspection:
+
+1. **DOM Analyzer** (fast): forms, scripts, redirects, obfuscation
+2. **NLP Classifier** (fast-ish): visible + hidden text signals
+3. **LLM Reasoner** (optional): used when risk crosses a threshold
+4. **Risk Calculator**: produces a final score + action
+
+The response includes:
+- `risk_score` (0..1)
+- `action`: `ALLOW | CONFIRM | BLOCK`
+- an explanation string
+- a detailed breakdown
+
+### Force LLM layer on every analysis
+Set:
 ```bash
-# Start mock firewall server (for testing)
-python tests/firewall/mock_external_firewall.py
-
-# Test integration
-python tests/firewall/test_external_firewall.py
-
-# Run with external firewall enabled
-USE_EXTERNAL_FIREWALL=true python main.py
+export FIREWALL_LLM_THRESHOLD=0.0
 ```
+(Requires `GOOGLE_API_KEY`.)
 
-## 🛠️ Development
+---
 
-The system is designed to be modular and extensible:
+## Persistent memory (SQLite + FTS5)
 
-- **Agent Controller**: Orchestrates the main agent loop
-- **LLM Planner**: Uses Gemini 2.5 Flash to decide next actions
-- **System Chrome Executor**: Handles browser automation with system Chrome
-- **Firewall Client**: Provides security validation
-- **API Routes**: Exposes REST endpoints for external integration
+The agent stores lightweight “RAG-style” memories in `agent_memory.db`:
+- step summaries (action + outcome)
+- URL + title
+- truncated page snapshots
+- safety metadata (trusted / risk_score when available)
 
-### Example Usage
+Retrieval is **trust/risk-aware** (prefers trusted + low-risk + same domain/task).
 
-```python
-from src.agent.agent_controller import AgentController, AgentTask
-
-# Create agent
-agent = AgentController()
-
-# Create task
-task = AgentTask(
-    task_id="example-task",
-    user_request="Go to Wikipedia and find information about AI",
-    max_steps=15
-)
-
-# Execute task
-result = await agent.execute_task(task)
-print(result)
-```
-
-## 🌐 Browser Extension Integration
-
-The API is designed to work with browser extensions. Extensions can:
-1. Send user requests to `/api/v1/agent_execute`
-2. Monitor progress via `/api/v1/task-status`  
-3. Get page state and execution logs
-4. Integrate with the security firewall
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-#### Browser Crashes on macOS
-- The system uses system Chrome instead of bundled Chromium
-- Ensure Google Chrome is installed at `/Applications/Google Chrome.app`
-- Run browser diagnostics: `python tests/diagnostics/diagnostics/diagnose_browser.py`
-
-#### API Key Issues
-- Make sure `GOOGLE_API_KEY` is set in `.env` file
-- Verify the key format starts with `AIzaSy`
-- Get a key from: https://makersuite.google.com/app/apikey
-
-#### Import Errors
-- Install all dependencies: `pip install -r requirements.txt`
-- Install Playwright browsers: `playwright install`
-- Run system diagnostics: `python diagnose_system.py`
-
-### Running Tests
+Configure DB location:
 ```bash
-# Quick system test
-python tests/quick_test.py
-
-# Interactive demo
-python tests/demos/interactive_demo.py
-
-# Browser diagnostics
-python tests/diagnostics/diagnostics/diagnose_browser.py
-
-# Full system check
-python diagnose_system.py
+export AGENT_MEMORY_DB=/absolute/path/to/agent_memory.db
 ```
 
-## 📊 Monitoring & Logs
+---
 
-- **Console Output**: Real-time colored logging
-- **Log Files**: `agent_execution.log` for persistent logs
-- **API Status**: Health check at `http://localhost:8001/`
-- **Task Monitoring**: Real-time status via `/api/v1/task-status`
+## Troubleshooting
 
-## 📄 License
+### Overlay doesn’t show
+- Must be a normal `http(s)` page (not `chrome://*`, Web Store, etc.)
+- Reload extension in `chrome://extensions`
+- Refresh the page
 
-This project is for educational and research purposes. Please ensure you have proper authorization before automating interactions with websites.
+### Analyze/Run does nothing
+- Confirm server is up:
+  - `curl http://127.0.0.1:8001/api/v1/health`
+- Check Extension → **Service worker** console for logs
+
+### LLM isn’t used
+- Ensure `GOOGLE_API_KEY` (or `GEMINI_API_KEY`) is set
+- Lower the threshold:
+  - `FIREWALL_LLM_THRESHOLD=0.0`
+
+---
+
+## Repo map
+
+- `extension/` – Chrome extension (overlay UI + background proxy)
+- `src/agent/` – agent runtime + CDP attach + safe execution loop
+- `firewall/` + `analysers/` – page analysis + LLM firewall
+- `src/memory/` – SQLite memory (FTS5)
+- `scripts/run_dom_threat_check.py` – CLI test harness for DOM threat analysis
+
+---
+
+## License
+
+Educational/research use. Only automate sites where you have authorization.
