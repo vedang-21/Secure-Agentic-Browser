@@ -70,7 +70,7 @@ Use the existing `browser_extension_example/` as a starter.
   - [ ] show “Blocked for safety” with reason + risk factors
 - [ ] If firewall warns (allowed but risky):
   - [ ] show warning banner and let user abort
-
+done
 ---
 
 ## P2 — Hosting on Fly.io (Option A: Hosted planner + Local runner)
