@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ORIX — Security Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@300;400;500;600;800&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+ 
+/* ═══════════════════════════════════════════
+   ROOT — exact copy from final.html
+═══════════════════════════════════════════ */
+:root {
+  --o:  #ff5500;
+  --o2: #ff7a22;
+  --o3: #ffaa55;
+  --blk: #060606;
+  --card: #0e0e0e;
+  --wht: #f0ede8;
+  --gray: #777;
+  --border: rgba(255,85,0,0.10);
+}
+ 
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+ 
+body {
+  background: var(--blk);
+  color: var(--wht);
+  font-family: 'Barlow', sans-serif;
+  overflow-x: hidden;
+}
+ 
+/* Scanline grain — identical to final.html */
+body::after {
+  content:'';
+  position:fixed; inset:0; z-index:0; margin-top:50px; pointer-events:none;
+  background-image: repeating-linear-gradient(
+    0deg, transparent, transparent 5px,
+    rgba(255,85,0,0.012) 2px, rgba(255,85,0,0.012) 3px
+  );
+}
+ 
+/* ═══════════════════════
+   NAVBAR — identical to final.html
+═══════════════════════ */
+#navbar {
+  position:fixed; top:0; left:0; right:0; z-index:900;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:18px 52px;
+  background:rgba(6,6,6,0.85);
+  backdrop-filter:blur(20px);
+  border-bottom:1px solid rgba(255,85,0,0.07);
+  animation:navFadeIn 0.5s ease forwards;
+}
+@keyframes navFadeIn { from{opacity:0} to{opacity:1} }
+ 
+.nav-brand { display:flex; align-items:center; gap:12px; text-decoration:none; cursor:pointer; }
+ 
+.radar-logo { position:relative; width:38px; height:38px; flex-shrink:0; }
+.radar-logo svg { width:100%; height:100%; display:block; }
+ 
+.radar-sweep {
+  position:absolute; top:50%; left:50%;
+  width:calc(50% - 2px); height:1.5px;
+  transform-origin:left center; margin-top:-0.75px;
+  background:linear-gradient(90deg, var(--o), rgba(255,85,0,0));
+  filter:drop-shadow(0 0 5px var(--o));
+  animation:radarSpin 2.6s linear infinite;
+}
+@keyframes radarSpin { to { transform:rotate(360deg); } }
+ 
+.radar-glow {
+  position:absolute; inset:0; border-radius:50%;
+  background:conic-gradient(from 0deg,
+    rgba(255,85,0,0.22) 0deg, rgba(255,85,0,0) 80deg, transparent 360deg);
+  animation:radarSpin 2.6s linear infinite;
+}
+ 
+.nav-wordmark {
+  font-family:'Barlow',sans-serif;
+  font-size:20px; letter-spacing:4px; color:var(--o2); font-weight:800;
+}
+ 
+.nav-links { display:flex; align-items:center; gap:38px; }
+.nav-link {
+  font-size:13px; font-weight:800; letter-spacing:2.5px;
+  color:var(--wht); text-transform:uppercase;
+  text-decoration:none; cursor:pointer; transition:color 0.2s;
+}
+.nav-link:hover { color:var(--o2); }
+.nav-link.active { color:var(--o); border-bottom:2px solid var(--o); padding-bottom:2px; }
+ 
+.nav-cta {
+  font-family:'Barlow',sans-serif;
+  background:transparent; border:1px solid var(--o);
+  color:var(--o); font-size:11px; font-weight:600;
+  letter-spacing:2.5px; text-transform:uppercase;
+  padding:10px 28px; border-radius:2px; cursor:pointer; transition:all 0.25s;
+}
+.nav-cta:hover { background:var(--o); color:#000; box-shadow:0 0 30px rgba(255,85,0,0.5); }
+ 
+/* ═══════════════════════
+   LAYOUT
+═══════════════════════ */
+.page-wrap {
+  padding-top: 74px;
+  min-height: 100vh;
+  position: relative; z-index: 2;
+}
+ 
+/* ═══════════════════════
+   DASHBOARD HEADER
+═══════════════════════ */
+.dash-header {
+  padding: 40px 52px 32px;
+  border-bottom: 1px solid var(--border);
+  position: relative; overflow: hidden;
+}
+/* subtle top-right orange glow — like final.html halo-tr */
+.dash-header::after {
+  content:'';
+  position:absolute; top:-100px; right:-100px;
+  width:400px; height:300px;
+  background:radial-gradient(ellipse at center,
+    rgba(255,85,0,0.16) 0%, rgba(255,60,0,0.05) 50%, transparent 70%);
+  border-radius:50%; filter:blur(60px);
+  pointer-events:none;
+}
+ 
+.dh-title {
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(44px,5vw,68px);
+  letter-spacing:0.04em; line-height:1;
+  background:linear-gradient(155deg, var(--wht) 0%, #ffd0a8 50%, var(--o) 100%);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+  margin-bottom:8px;
+}
+ 
+.dh-sub {
+  font-family:'DM Mono',monospace;
+  font-size:11px; letter-spacing:2px; color:var(--gray);
+}
+ 
+.dh-status {
+  display:inline-flex; align-items:center; gap:8px;
+  font-family:'DM Mono',monospace; font-size:10px;
+  letter-spacing:2.5px; text-transform:uppercase;
+  color:#44cc77; margin-top:14px;
+}
+.status-dot {
+  width:8px; height:8px; background:#44cc77; border-radius:50%;
+  box-shadow: 0 0 8px #44cc77;
+  animation:statusPulse 1.8s ease-in-out infinite;
+}
+@keyframes statusPulse { 0%,100%{opacity:1;box-shadow:0 0 8px #44cc77} 50%{opacity:0.5;box-shadow:none} }
+ 
+/* ═══════════════════════
+   MAIN GRID
+═══════════════════════ */
+.dash-body { padding: 32px 52px 80px; display:flex; flex-direction:column; gap:28px; }
+ 
+/* ── STAT CARDS ROW ── */
+.stats-row {
+  display:grid; grid-template-columns:repeat(4,1fr); gap:1px;
+  background:rgba(255,85,0,0.07);
+  border:1px solid var(--border); border-radius:8px; overflow:hidden;
+}
+ 
+.stat-card {
+  background:var(--card); padding:28px 28px 24px;
+  position:relative; overflow:hidden; transition:background 0.25s;
+}
+.stat-card:hover { background:#131313; }
+.stat-card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:1px;
+  background:linear-gradient(90deg,transparent,var(--o),transparent);
+  transform:scaleX(0); transition:transform 0.4s;
+}
+.stat-card:hover::before { transform:scaleX(1); }
+/* subtle top-right radial on hover */
+.stat-card::after {
+  content:''; position:absolute; top:0; right:0;
+  width:80px; height:80px;
+  background:radial-gradient(circle at top right, rgba(255,85,0,0.08), transparent 70%);
+  opacity:0; transition:opacity 0.3s;
+}
+.stat-card:hover::after { opacity:1; }
+ 
+.sc-label {
+  font-family:'DM Mono',monospace; font-size:9px;
+  letter-spacing:3px; text-transform:uppercase;
+  color:var(--gray); margin-bottom:16px;
+}
+.sc-value {
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(36px,4vw,54px); letter-spacing:-0.5px; line-height:1;
+  color:var(--wht);
+}
+.sc-delta {
+  font-family:'DM Mono',monospace; font-size:10px;
+  letter-spacing:1px; margin-top:10px; color:#44cc77;
+}
+.sc-delta.down { color:#ff6644; }
+ 
+/* ── CHARTS ROW ── */
+.charts-row {
+  display:grid; grid-template-columns:1.8fr 1fr 0.9fr; gap:20px;
+}
+ 
+.chart-card {
+  background:var(--card); border:1px solid var(--border);
+  border-radius:8px; padding:26px 28px;
+  position:relative; overflow:hidden;
+}
+.chart-card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:1px;
+  background:linear-gradient(90deg, transparent, rgba(255,85,0,0.3), transparent);
+}
+ 
+.cc-label {
+  font-family:'DM Mono',monospace; font-size:10px;
+  letter-spacing:3px; text-transform:uppercase;
+  color:rgba(255,85,0,0.55); margin-bottom:20px;
+}
+.chart-wrap { position:relative; height:200px; }
+ 
+/* ── LOGS TABLE ── */
+.logs-card {
+  background:var(--card); border:1px solid var(--border);
+  border-radius:8px; padding:28px 32px;
+  position:relative; overflow:hidden;
+}
+.logs-card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:1px;
+  background:linear-gradient(90deg, transparent, rgba(255,85,0,0.3), transparent);
+}
+ 
+.lc-header {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:24px;
+}
+.lc-title {
+  font-family:'Bebas Neue',sans-serif;
+  font-size:26px; letter-spacing:0.04em; color:var(--wht);
+}
+.lc-count {
+  font-family:'DM Mono',monospace; font-size:10px;
+  letter-spacing:2px; color:var(--gray);
+}
+ 
+/* Table */
+.log-table { width:100%; border-collapse:collapse; }
+ 
+.log-table thead th {
+  font-family:'DM Mono',monospace; font-size:9px;
+  letter-spacing:3px; text-transform:uppercase;
+  color:var(--gray); padding:10px 16px;
+  text-align:left; border-bottom:1px solid rgba(255,85,0,0.08);
+  font-weight:400;
+}
+ 
+.log-table tbody tr {
+  border-bottom:1px solid rgba(255,85,0,0.05);
+  transition:background 0.2s;
+}
+.log-table tbody tr:hover { background:rgba(255,85,0,0.03); }
+.log-table tbody tr:last-child { border-bottom:none; }
+ 
+.log-table tbody td {
+  padding:15px 16px; font-size:13px; color:#aaa; vertical-align:middle;
+}
+ 
+.td-ts { font-family:'DM Mono',monospace; font-size:11px; color:var(--gray); }
+.td-url { font-family:'DM Mono',monospace; font-size:12px; color:#ccc; }
+.td-risk { font-family:'DM Mono',monospace; font-size:13px; font-weight:400; }
+.td-risk.high   { color:#ff4444; }
+.td-risk.med    { color:#ffc800; }
+.td-risk.low    { color:#44cc77; }
+ 
+/* Verdict pill */
+.vpill {
+  display:inline-block; padding:4px 12px; border-radius:2px;
+  font-family:'DM Mono',monospace; font-size:9px;
+  font-weight:400; letter-spacing:2px; text-transform:uppercase;
+  border:1px solid transparent;
+}
+.vpill.ALLOW   { background:rgba(68,204,119,0.10); color:#44cc77; border-color:rgba(68,204,119,0.25); }
+.vpill.BLOCK   { background:rgba(255,68,68,0.10);  color:#ff4444; border-color:rgba(255,68,68,0.25); }
+.vpill.WARN    { background:rgba(255,200,0,0.10);  color:#ffc800; border-color:rgba(255,200,0,0.25); }
+.vpill.CONFIRM { background:rgba(255,85,0,0.10);   color:var(--o2); border-color:rgba(255,85,0,0.25); }
+ 
+.td-explain { font-size:13px; color:#777; font-weight:300; }
+ 
+/* ═══════════════════════
+   FOOTER — identical to final.html
+═══════════════════════ */
+footer {
+  border-top:1px solid rgba(255,85,0,0.07);
+  padding:36px 52px;
+  display:flex; align-items:center; justify-content:space-between;
+  position:relative; z-index:2;
+}
+.foot-brand { display:flex; align-items:center; gap:10px; }
+.foot-name { font-family:'Barlow',sans-serif; font-size:20px; font-weight:800; letter-spacing:4px; color:var(--o2); }
+.foot-links { display:flex; gap:28px; }
+.foot-link { font-size:11px; color:var(--gray); cursor:pointer; letter-spacing:1px; text-decoration:none; transition:color 0.2s; font-weight:600; }
+.foot-link:hover { color:var(--o); }
+.foot-copy { font-family:'DM Mono',monospace; font-size:10px; color:rgba(255,255,255,0.12); }
+ 
+/* ═══════════════════════
+   SCROLL REVEAL
+═══════════════════════ */
+.reveal { opacity:0; transform:translateY(20px); transition:opacity 0.6s ease, transform 0.6s ease; }
+.reveal.on { opacity:1; transform:none; }
+.d1{transition-delay:.04s}.d2{transition-delay:.10s}
+.d3{transition-delay:.16s}.d4{transition-delay:.22s}
+ 
+/* ═══════════════════════
+   RESPONSIVE
+═══════════════════════ */
+@media(max-width:1100px) {
+  .charts-row { grid-template-columns:1fr 1fr; }
+  .charts-row .chart-card:last-child { grid-column:span 2; }
+  .stats-row { grid-template-columns:1fr 1fr; }
+}
+@media(max-width:700px) {
+  #navbar, .dash-body, .dash-header, footer { padding-left:20px; padding-right:20px; }
+  .stats-row, .charts-row { grid-template-columns:1fr; }
+  .charts-row .chart-card:last-child { grid-column:auto; }
+  footer { flex-direction:column; gap:16px; text-align:center; }
+  .log-table thead { display:none; }
+  .log-table tbody td { display:block; padding:6px 12px; }
+}
+</style>
+</head>
+<body>
+ 
+<!-- ══ NAVBAR ══ -->
+<nav id="navbar">
+  <div class="nav-brand" onclick="window.location='final.html'">
+    <div class="radar-logo">
+      <svg viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="19" cy="19" r="17.5" stroke="#ff5500" stroke-width="1.5"/>
+        <circle cx="19" cy="19" r="13"   stroke="#ff5500" stroke-width="0.7" opacity="0.55"/>
+        <circle cx="19" cy="19" r="8.5"  stroke="#ff5500" stroke-width="0.7" opacity="0.4"/>
+        <circle cx="19" cy="19" r="4"    stroke="#ff5500" stroke-width="0.7" opacity="0.3"/>
+        <line x1="19" y1="1.5" x2="19" y2="36.5" stroke="#ff5500" stroke-width="0.4" opacity="0.22"/>
+        <line x1="1.5" y1="19" x2="36.5" y2="19"  stroke="#ff5500" stroke-width="0.4" opacity="0.22"/>
+        <line x1="6"  y1="6"  x2="32" y2="32" stroke="#ff5500" stroke-width="0.3" opacity="0.14"/>
+        <line x1="32" y1="6"  x2="6"  y2="32" stroke="#ff5500" stroke-width="0.3" opacity="0.14"/>
+        <circle cx="19" cy="19" r="2.5" fill="#ff5500"/>
+      </svg>
+      <div class="radar-glow"></div>
+      <div class="radar-sweep"></div>
+    </div>
+    <div class="nav-wordmark">ORIX</div>
+  </div>
+ 
+  <div class="nav-links">
+    <a class="nav-link" href="final.html">PRODUCT</a>
+    <a class="nav-link active" href="dashboard.html">DASHBOARD</a>
+    <a class="nav-link" href="news.html">THREAT INTEL</a>
+  </div>
+ 
+  <button class="nav-cta">GET STARTED</button>
+</nav>
+ 
+<!-- ══ PAGE ══ -->
+<div class="page-wrap">
+ 
+  <!-- HEADER -->
+  <div class="dash-header">
+    <div class="dh-title">Security Dashboard</div>
+    <div class="dh-sub">firewall/metrics.json — refreshed on load</div>
+    <div class="dh-status"><div class="status-dot"></div>SYSTEM ONLINE // ALL LAYERS ACTIVE</div>
+  </div>
+ 
+  <!-- DASHBOARD BODY -->
+  <div class="dash-body">
+ 
+    <!-- STAT CARDS -->
+    <div class="stats-row">
+      <div class="stat-card reveal d1">
+        <div class="sc-label">Total Scans</div>
+        <div class="sc-value" id="sv1">0</div>
+        <div class="sc-delta">↑ 2.3% today</div>
+      </div>
+      <div class="stat-card reveal d2">
+        <div class="sc-label">Threats Detected</div>
+        <div class="sc-value" id="sv2">0</div>
+        <div class="sc-delta">↑ 142 this hour</div>
+      </div>
+      <div class="stat-card reveal d3">
+        <div class="sc-label">Blocked Attacks</div>
+        <div class="sc-value" id="sv3">0</div>
+        <div class="sc-delta">↑ 89 this hour</div>
+      </div>
+      <div class="stat-card reveal d4">
+        <div class="sc-label">Avg Risk Score</div>
+        <div class="sc-value" id="sv4">0</div>
+        <div class="sc-delta down">↓ 0.02 from avg</div>
+      </div>
+    </div>
+ 
+    <!-- CHARTS -->
+    <div class="charts-row">
+ 
+      <!-- LINE: risk over time -->
+      <div class="chart-card reveal d1">
+        <div class="cc-label">// Risk Score Over Time</div>
+        <div class="chart-wrap"><canvas id="lineChart"></canvas></div>
+      </div>
+ 
+      <!-- BAR: attack types -->
+      <div class="chart-card reveal d2">
+        <div class="cc-label">// Attack Types</div>
+        <div class="chart-wrap"><canvas id="barChart"></canvas></div>
+      </div>
+ 
+      <!-- DOUGHNUT: verdict split -->
+      <div class="chart-card reveal d3">
+        <div class="cc-label">// Verdict Split</div>
+        <div class="chart-wrap"><canvas id="pieChart"></canvas></div>
+      </div>
+    </div>
+ 
+    <!-- LOGS TABLE -->
+    <div class="logs-card reveal">
+      <div class="lc-header">
+        <div class="lc-title">Recent Analysis Logs</div>
+        <div class="lc-count">8 recent events</div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="log-table">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>URL</th>
+              <th>Risk Score</th>
+              <th>Verdict</th>
+              <th>Explanation</th>
+            </tr>
+          </thead>
+          <tbody id="logsBody"></tbody>
+        </table>
+      </div>
+    </div>
+ 
+  </div><!-- /dash-body -->
+ 
+  <!-- FOOTER -->
+  <footer>
+    <div class="foot-brand">
+      <svg width="26" height="26" viewBox="0 0 38 38" fill="none">
+        <circle cx="19" cy="19" r="17.5" stroke="#ff5500" stroke-width="1.5"/>
+        <circle cx="19" cy="19" r="12"   stroke="#ff5500" stroke-width="0.7" opacity="0.5"/>
+        <circle cx="19" cy="19" r="7"    stroke="#ff5500" stroke-width="0.7" opacity="0.4"/>
+        <circle cx="19" cy="19" r="2.5"  fill="#ff5500"/>
+        <line x1="19" y1="19" x2="32" y2="10" stroke="#ff5500" stroke-width="1.2" opacity="0.85"/>
+      </svg>
+      <div class="foot-name">ORIX</div>
+    </div>
+    <div class="foot-links">
+      <a class="foot-link" href="final.html">Product</a>
+      <a class="foot-link" href="dashboard.html">Dashboard</a>
+      <a class="foot-link" href="news.html">Intel Feed</a>
+    </div>
+    <div class="foot-copy">© 2026 ORIX</div>
+  </footer>
+ 
+</div>
+ 
+<script>
+/* ══════════════════
+   DATA
+══════════════════ */
+const metrics = {
+  total_scans:   98342,
+  threats:       14827,
+  blocked:       11203,
+  avg_risk:      0.34,
+  risk_over_time: [0.12,0.65,0.45,0.78,0.23,0.87,0.34,0.56,0.82,0.15,0.68,0.44,0.73,0.09,0.58,0.82,0.21,0.47,0.66,0.33],
+  timestamps:    ['03:00','03:30','04:00','04:30','05:00','05:30','06:00','06:30','07:00','07:30','08:00','08:30','09:00','09:30','10:00','10:30','11:00','11:30','12:00','12:30'],
+  attack_types: {
+    'Phishing':           4231,
+    'Prompt Injection':   3108,
+    'Obfuscation':        2876,
+    'Credential Harvest': 2190,
+    'DOM Manipulation':   1422,
+    'Redirect Chain':     1000,
+  },
+  verdict_split: { ALLOW:73882, BLOCK:11203, WARN:8042, CONFIRM:5215 },
+  logs: [
+    { ts:'12:31:44', url:'secure.phish-bait.xyz',      risk:0.87, verdict:'BLOCK',   explain:'Prompt injection + credential harvesting' },
+    { ts:'12:30:11', url:'amazon.com/checkout',         risk:0.11, verdict:'ALLOW',   explain:'Clean DOM, no anomalies' },
+    { ts:'12:28:55', url:'free-crypto-giveaway.io',     risk:0.92, verdict:'BLOCK',   explain:'Hidden iframe + obfuscated JS redirect' },
+    { ts:'12:27:33', url:'news.ycombinator.com',        risk:0.08, verdict:'ALLOW',   explain:'Trusted domain, low risk' },
+    { ts:'12:25:18', url:'login.bank-secure-verify.net',risk:0.74, verdict:'BLOCK',   explain:'Credential form + domain spoofing' },
+    { ts:'12:22:09', url:'github.com/trending',         risk:0.09, verdict:'ALLOW',   explain:'Verified safe domain' },
+    { ts:'12:20:44', url:'update-your-wallet.defi.xyz', risk:0.68, verdict:'CONFIRM', explain:'Suspicious redirect chain detected' },
+    { ts:'12:18:02', url:'shop.legitstore.com',         risk:0.29, verdict:'WARN',    explain:'Minor NLP signal — monitor' },
+  ]
+};
+ 
+/* ══════════════════
+   CHART GLOBAL OPTIONS
+══════════════════ */
+const baseOpts = {
+  responsive:true, maintainAspectRatio:false,
+  plugins:{
+    legend:{ display:false },
+    tooltip:{
+      backgroundColor:'#111',
+      titleColor:'#ff5500',
+      bodyColor:'#888',
+      borderColor:'rgba(255,85,0,0.18)',
+      borderWidth:1,
+      titleFont:{ family:'DM Mono', size:10 },
+      bodyFont:{ family:'DM Mono', size:11 },
+    }
+  },
+  scales:{
+    x:{ ticks:{ color:'#444', font:{ family:'DM Mono', size:9 } }, grid:{ color:'rgba(255,85,0,0.05)' } },
+    y:{ ticks:{ color:'#444', font:{ family:'DM Mono', size:9 } }, grid:{ color:'rgba(255,85,0,0.05)' } }
+  }
+};
+ 
+/* ── LINE CHART ── */
+new Chart(document.getElementById('lineChart'), {
+  type:'line',
+  data:{
+    labels: metrics.timestamps,
+    datasets:[{
+      data: metrics.risk_over_time,
+      borderColor:'#ff5500',
+      backgroundColor:'rgba(255,85,0,0.07)',
+      fill:true, tension:0.4,
+      pointBackgroundColor:'#ff5500',
+      pointRadius:3, pointHoverRadius:6, borderWidth:2,
+    }]
+  },
+  options:{
+    ...baseOpts,
+    scales:{
+      x:{ ticks:{ color:'#444', font:{ family:'DM Mono', size:9 } }, grid:{ color:'rgba(255,85,0,0.05)' } },
+      y:{
+        min:0, max:1,
+        ticks:{ color:'#444', font:{ family:'DM Mono', size:9 }, stepSize:0.2 },
+        grid:{ color:'rgba(255,85,0,0.05)' }
+      }
+    }
+  }
+});
+ 
+/* ── BAR CHART ── */
+new Chart(document.getElementById('barChart'), {
+  type:'bar',
+  data:{
+    labels: Object.keys(metrics.attack_types).map(k => k.replace(' ','\n')),
+    datasets:[{
+      data: Object.values(metrics.attack_types),
+      backgroundColor:['rgba(255,85,0,0.75)','rgba(255,122,34,0.75)','rgba(255,170,85,0.75)','rgba(255,68,68,0.75)','rgba(255,200,0,0.70)','rgba(68,204,119,0.65)'],
+      borderRadius:3, borderSkipped:false,
+    }]
+  },
+  options:{ ...baseOpts }
+});
+ 
+/* ── DOUGHNUT ── */
+new Chart(document.getElementById('pieChart'), {
+  type:'doughnut',
+  data:{
+    labels: Object.keys(metrics.verdict_split),
+    datasets:[{
+      data: Object.values(metrics.verdict_split),
+      backgroundColor:['rgba(68,204,119,0.85)','rgba(255,68,68,0.85)','rgba(255,200,0,0.85)','rgba(255,122,34,0.85)'],
+      borderColor:'#0e0e0e', borderWidth:4, hoverOffset:6,
+    }]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    cutout:'68%',
+    plugins:{
+      legend:{
+        display:true, position:'bottom',
+        labels:{ color:'#666', font:{ family:'DM Mono', size:9 }, padding:14, boxWidth:10 }
+      },
+      tooltip:{
+        backgroundColor:'#111', titleColor:'#ff5500', bodyColor:'#888',
+        borderColor:'rgba(255,85,0,0.18)', borderWidth:1,
+        titleFont:{ family:'DM Mono', size:10 }, bodyFont:{ family:'DM Mono', size:11 }
+      }
+    }
+  }
+});
+ 
+/* ══════════════════
+   LOGS TABLE
+══════════════════ */
+function riskClass(r) { return r >= 0.65 ? 'high' : r >= 0.35 ? 'med' : 'low'; }
+ 
+document.getElementById('logsBody').innerHTML = metrics.logs.map(l => `
+  <tr>
+    <td class="td-ts">${l.ts}</td>
+    <td class="td-url">${l.url}</td>
+    <td class="td-risk ${riskClass(l.risk)}">${l.risk.toFixed(2)}</td>
+    <td><span class="vpill ${l.verdict}">${l.verdict}</span></td>
+    <td class="td-explain">${l.explain}</td>
+  </tr>
+`).join('');
+ 
+/* ══════════════════
+   COUNTER ANIMATION
+══════════════════ */
+function animCount(el, target, fmt, dur=1800) {
+  const start = performance.now();
+  (function tick(now) {
+    const p = Math.min((now-start)/dur, 1);
+    const e = 1 - Math.pow(1-p, 4);
+    const v = e * target;
+    if      (fmt === 'comma')   el.textContent = Math.round(v).toLocaleString();
+    else if (fmt === 'decimal') el.textContent = v.toFixed(2);
+    else                        el.textContent = Math.round(v).toLocaleString();
+    if (p < 1) requestAnimationFrame(tick);
+  })(start);
+}
+ 
+function runCounters() {
+  animCount(document.getElementById('sv1'), metrics.total_scans, 'comma');
+  animCount(document.getElementById('sv2'), metrics.threats,     'comma');
+  animCount(document.getElementById('sv3'), metrics.blocked,     'comma');
+  animCount(document.getElementById('sv4'), metrics.avg_risk,    'decimal');
+}
+ 
+/* ══════════════════
+   SCROLL REVEAL
+══════════════════ */
+let countersRun = false;
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    e.target.classList.add('on');
+    obs.unobserve(e.target);
+    if (!countersRun && e.target.closest('.stats-row')) {
+      countersRun = true;
+      runCounters();
+    }
+  });
+}, { threshold: 0.08 });
+ 
+document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+ 
+/* ══════════════════
+   NAVBAR BG ON SCROLL
+══════════════════ */
+window.addEventListener('scroll', () => {
+  document.getElementById('navbar').style.background = window.scrollY > 40
+    ? 'rgba(6,6,6,0.97)' : 'rgba(6,6,6,0.85)';
+}, { passive:true });
+</script>
+</body>
+</html>
