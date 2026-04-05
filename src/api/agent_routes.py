@@ -1,10 +1,15 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import uuid
 import logging
 import asyncio
 import os
+import json
+import time
+from pathlib import Path
+import sqlite3
+
 from ..agent.agent_controller import AgentController, AgentTask
 from firewall.core.security_mediator import SecurityMediator
 
@@ -313,6 +318,50 @@ async def analyze_page(request: AnalyzePageRequest):
             }
         )
         report = mediator.analyze_page(page_content=request.page_content or "", agent_goal=request.goal or "")
+
+        # Persist analyze events so they show up in lifetime metrics/logs.
+        # We treat each analyze call as a scan with its own task_id.
+        try:
+            from ..memory.sqlite_memory import SQLiteMemoryStore
+
+            mem = SQLiteMemoryStore()
+            risk_score = 0.0
+            verdict = "ALLOW"
+            try:
+                risk_score = float((report or {}).get("risk_score") or (report or {}).get("risk") or 0.0)
+            except Exception:
+                risk_score = 0.0
+
+            # Best-effort verdict derivation (use report verdict if provided)
+            verdict = str((report or {}).get("verdict") or "").upper().strip() or (
+                "BLOCK" if risk_score >= 0.65 else "WARN" if risk_score >= 0.35 else "ALLOW"
+            )
+
+            url = str(request.tabUrl or "")
+            title = str(request.title or "")
+            goal = str(request.goal or "")
+            summary = f"analyze_page verdict={verdict} risk={risk_score:.3f} goal={goal[:80]}".strip()
+
+            mem.add(
+                kind="analyze",
+                task_id=f"analyze:{uuid.uuid4()}",
+                url=url,
+                title=title,
+                summary=summary,
+                content=request.page_content or "",
+                metadata={
+                    "source": "firewall.analyze_page",
+                    "risk_score": risk_score,
+                    "verdict": verdict,
+                    "tabUrl": request.tabUrl,
+                    "title": request.title,
+                    "goal": request.goal,
+                    "report": report,
+                },
+            )
+        except Exception as e:
+            logger.warning(f"Failed to persist analyze_page event to memory: {e}")
+
         return {
             "status": "ok",
             "tabUrl": request.tabUrl,
@@ -321,3 +370,329 @@ async def analyze_page(request: AnalyzePageRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/metrics")
+async def metrics() -> Dict[str, Any]:
+    """Dashboard-friendly metrics snapshot (JSON).
+
+    Includes:
+    - current task status + last N timeline steps
+    - step execution stats (blocked/executed/errors) + duration aggregates
+    - memory DB stats (row counts, by kind, db size)
+    - tail of agent_execution.log
+
+    Safe for localhost use. If hosting, add auth/rate limiting.
+    """
+
+    status = await agent_controller.get_task_status()
+
+    steps = status.get("steps_log", []) or []
+    blocked = 0
+    executed = 0
+    errors = 0
+    durations = []
+
+    # Dashboard rollups
+    verdict_split: Dict[str, int] = {"ALLOW": 0, "BLOCK": 0, "WARN": 0, "CONFIRM": 0}
+    attack_types: Dict[str, int] = {}
+    risk_over_time = []
+    timestamps = []
+    dashboard_logs = []
+
+    for s in steps:
+        if not isinstance(s, dict):
+            continue
+
+        fw = s.get("firewall") if isinstance(s.get("firewall"), dict) else {}
+        verdict = str(fw.get("verdict") or ("ALLOW" if fw.get("allowed", True) else "BLOCK")).upper()
+        if verdict not in verdict_split:
+            verdict_split[verdict] = 0
+        verdict_split[verdict] += 1
+
+        if fw.get("allowed") is False:
+            blocked += 1
+        if s.get("status") == "executed":
+            executed += 1
+
+        ex = s.get("execution") if isinstance(s.get("execution"), dict) else {}
+        if ex.get("status") == "error":
+            errors += 1
+
+        d = s.get("duration")
+        if isinstance(d, (int, float)):
+            durations.append(float(d))
+
+        # Risk and timeline series
+        risk = fw.get("risk")
+        if isinstance(risk, (int, float)):
+            r = float(risk)
+            risk_over_time.append(r)
+            timestamps.append(str(s.get("ts") or s.get("timestamp") or ""))
+
+        # Attack type rollup (best-effort)
+        for t in (fw.get("reasons") or fw.get("signals") or []):
+            if isinstance(t, str) and t.strip():
+                key = t.strip()[:42]
+                attack_types[key] = attack_types.get(key, 0) + 1
+
+        # Recent logs table
+        url = s.get("url") or (s.get("page") or {}).get("url")
+        title = (s.get("page") or {}).get("title") if isinstance(s.get("page"), dict) else None
+        explain = fw.get("explanation") or fw.get("summary") or ""
+        if not explain and fw.get("reasons"):
+            explain = ", ".join([str(x) for x in (fw.get("reasons") or [])[:3]])
+
+        dashboard_logs.append(
+            {
+                "ts": str(s.get("ts") or s.get("timestamp") or ""),
+                "url": str(url or ""),
+                "risk": float(risk) if isinstance(risk, (int, float)) else 0.0,
+                "verdict": verdict,
+                "explain": str(explain or title or ""),
+            }
+        )
+
+    # Keep only the most recent items
+    dashboard_logs = [l for l in dashboard_logs if (l.get("url") or l.get("explain"))]
+    dashboard_logs = dashboard_logs[-30:][::-1]
+
+    durations_sorted = sorted(durations)
+    avg_step_s = (sum(durations) / len(durations)) if durations else 0.0
+    p95_step_s = 0.0
+    if durations_sorted:
+        idx = int(0.95 * (len(durations_sorted) - 1))
+        p95_step_s = durations_sorted[max(0, min(idx, len(durations_sorted) - 1))]
+
+    avg_risk = (sum(risk_over_time) / len(risk_over_time)) if risk_over_time else 0.0
+
+    # Memory DB stats
+    mem_db_path = Path(os.getenv("AGENT_MEMORY_DB", "agent_memory.db"))
+    mem_stats: Dict[str, Any] = {
+        "path": str(mem_db_path),
+        "exists": mem_db_path.exists(),
+        "size_bytes": mem_db_path.stat().st_size if mem_db_path.exists() else 0,
+        "total_items": 0,
+        "by_kind": {},
+        "total_tasks": 0,
+    }
+
+    # Lifetime aggregates (computed from memory when possible)
+    lifetime_verdict_split: Dict[str, int] = {"ALLOW": 0, "BLOCK": 0, "WARN": 0, "CONFIRM": 0}
+    lifetime_blocked = 0
+    lifetime_avg_risk = 0.0
+    lifetime_risk_series: List[float] = []
+    lifetime_ts_series: List[str] = []
+    lifetime_logs = []
+
+    if mem_db_path.exists():
+        try:
+            con = sqlite3.connect(str(mem_db_path))
+            con.row_factory = sqlite3.Row
+            cur = con.cursor()
+
+            cur.execute("SELECT COUNT(*) AS c FROM memory_items")
+            row = cur.fetchone()
+            mem_stats["total_items"] = int((dict(row).get("c") if row else 0) or 0)
+
+            cur.execute("SELECT kind, COUNT(*) AS c FROM memory_items GROUP BY kind")
+            mem_stats["by_kind"] = {str(r["kind"]): int(r["c"]) for r in cur.fetchall()}
+
+            # Total scans: count distinct task_id for agent tasks + analyze events only.
+            # This avoids counting unrelated rows that may have empty task_id.
+            cur.execute(
+                "SELECT COUNT(DISTINCT task_id) AS c "
+                "FROM memory_items "
+                "WHERE task_id IS NOT NULL AND task_id != '' "
+                "  AND (kind IN ('step','final') OR kind = 'analyze')"
+            )
+            row = cur.fetchone()
+            mem_stats["total_tasks"] = int((dict(row).get("c") if row else 0) or 0)
+
+            # Risk & trust aggregates from metadata_json
+            try:
+                cur.execute(
+                    "SELECT "
+                    "  COUNT(*) AS n, "
+                    "  SUM(CASE WHEN json_extract(metadata_json, '$.risk_score') >= 0.65 THEN 1 ELSE 0 END) AS threats, "
+                    "  AVG(COALESCE(json_extract(metadata_json, '$.risk_score'), 0.0)) AS avg_risk "
+                    "FROM memory_items "
+                    "WHERE kind IN ('step','final','analyze')"
+                )
+                rrow = cur.fetchone()
+                rdict = dict(rrow) if rrow else {}
+                lifetime_blocked = int(rdict.get("threats") or 0)
+                lifetime_avg_risk = float(rdict.get("avg_risk") or 0.0)
+            except Exception:
+                lifetime_blocked = 0
+                lifetime_avg_risk = 0.0
+
+            # Risk series (last 20)
+            try:
+                cur.execute(
+                    "SELECT ts, COALESCE(json_extract(metadata_json, '$.risk_score'), 0.0) AS risk "
+                    "FROM memory_items "
+                    "WHERE kind IN ('step','final','analyze') "
+                    "ORDER BY ts DESC "
+                    "LIMIT 20"
+                )
+                rows = cur.fetchall()
+                # reverse to chronological
+                rows = list(reversed(rows))
+                lifetime_risk_series = [float(r["risk"] or 0.0) for r in rows]
+                lifetime_ts_series = [time.strftime('%H:%M:%S', time.localtime(float(r["ts"] or 0.0))) for r in rows]
+            except Exception:
+                lifetime_risk_series = []
+                lifetime_ts_series = []
+
+            # Verdict split (prefer stored verdict when present; fallback to risk thresholds)
+            try:
+                cur.execute(
+                    "SELECT "
+                    "  SUM(CASE WHEN upper(COALESCE(json_extract(metadata_json, '$.verdict'),'')) = 'BLOCK' THEN 1 ELSE 0 END) AS block_n, "
+                    "  SUM(CASE WHEN upper(COALESCE(json_extract(metadata_json, '$.verdict'),'')) = 'WARN' THEN 1 ELSE 0 END) AS warn_n, "
+                    "  SUM(CASE WHEN upper(COALESCE(json_extract(metadata_json, '$.verdict'),'')) = 'CONFIRM' THEN 1 ELSE 0 END) AS confirm_n, "
+                    "  SUM(CASE WHEN upper(COALESCE(json_extract(metadata_json, '$.verdict'),'')) = 'ALLOW' THEN 1 ELSE 0 END) AS allow_n, "
+                    "  SUM(CASE WHEN COALESCE(json_extract(metadata_json, '$.verdict'), NULL) IS NULL OR json_extract(metadata_json, '$.verdict') = '' THEN 1 ELSE 0 END) AS no_verdict_n "
+                    "FROM memory_items WHERE kind IN ('step','final','analyze')"
+                )
+                vrow = cur.fetchone()
+                vdict = dict(vrow) if vrow else {}
+
+                block_n = int(vdict.get("block_n") or 0)
+                warn_n = int(vdict.get("warn_n") or 0)
+                confirm_n = int(vdict.get("confirm_n") or 0)
+                allow_n = int(vdict.get("allow_n") or 0)
+                no_verdict_n = int(vdict.get("no_verdict_n") or 0)
+
+                lifetime_verdict_split["BLOCK"] = block_n
+                lifetime_verdict_split["WARN"] = warn_n
+                lifetime_verdict_split["CONFIRM"] = confirm_n
+                lifetime_verdict_split["ALLOW"] = allow_n
+
+                if no_verdict_n:
+                    cur.execute(
+                        "SELECT "
+                        "  SUM(CASE WHEN COALESCE(json_extract(metadata_json, '$.risk_score'),0.0) >= 0.65 THEN 1 ELSE 0 END) AS block_n, "
+                        "  SUM(CASE WHEN COALESCE(json_extract(metadata_json, '$.risk_score'),0.0) >= 0.35 AND COALESCE(json_extract(metadata_json, '$.risk_score'),0.0) < 0.65 THEN 1 ELSE 0 END) AS warn_n, "
+                        "  SUM(CASE WHEN COALESCE(json_extract(metadata_json, '$.risk_score'),0.0) < 0.35 THEN 1 ELSE 0 END) AS allow_n "
+                        "FROM memory_items "
+                        "WHERE kind IN ('step','final','analyze') AND (json_extract(metadata_json,'$.verdict') IS NULL OR json_extract(metadata_json,'$.verdict') = '')"
+                    )
+                    rr0 = cur.fetchone()
+                    rr = dict(rr0) if rr0 else {}
+                    lifetime_verdict_split["BLOCK"] += int(rr.get("block_n") or 0)
+                    lifetime_verdict_split["WARN"] += int(rr.get("warn_n") or 0)
+                    lifetime_verdict_split["ALLOW"] += int(rr.get("allow_n") or 0)
+            except Exception:
+                pass
+
+            # Treat threats/blocked as BLOCK + CONFIRM (tune if needed)
+            lifetime_blocked = int(lifetime_verdict_split.get("BLOCK", 0) + lifetime_verdict_split.get("CONFIRM", 0))
+
+            # Recent logs (last 30)
+            try:
+                cur.execute(
+                    "SELECT ts, url, title, summary, metadata_json "
+                    "FROM memory_items "
+                    "WHERE kind IN ('step','final','analyze') "
+                    "ORDER BY ts DESC "
+                    "LIMIT 30"
+                )
+                for r in cur.fetchall():
+                    meta = {}
+                    try:
+                        meta = json.loads(r["metadata_json"] or "{}")
+                    except Exception:
+                        meta = {}
+                    risk = 0.0
+                    try:
+                        risk = float(meta.get("risk_score", 0.0) or 0.0)
+                    except Exception:
+                        risk = 0.0
+
+                    verdict = str(meta.get("verdict") or "").upper().strip()
+                    if not verdict:
+                        verdict = "BLOCK" if risk >= 0.65 else "WARN" if risk >= 0.35 else "ALLOW"
+
+                    lifetime_logs.append(
+                        {
+                            "ts": time.strftime('%H:%M:%S', time.localtime(float(r["ts"] or 0.0))),
+                            "url": str(r["url"] or ""),
+                            "risk": risk,
+                            "verdict": verdict,
+                            "explain": str(r["summary"] or r["title"] or ""),
+                        }
+                    )
+            except Exception:
+                lifetime_logs = []
+
+            con.close()
+        except Exception as e:
+            mem_stats["error"] = str(e)
+
+    # Tail logs
+    log_path = Path("agent_execution.log")
+    log_tail = []
+    if log_path.exists():
+        try:
+            text = log_path.read_text(errors="ignore")
+            log_tail = text.splitlines()[-80:]
+        except Exception:
+            log_tail = []
+
+    # Ensure attack_types has something friendly even when empty
+    if not attack_types:
+        # Derive from verdict counts as a fallback
+        attack_types = {
+            "Prompt Injection": 0,
+            "Phishing": 0,
+            "Obfuscation": 0,
+            "Credential Harvest": 0,
+            "DOM Manipulation": 0,
+            "Redirect Chain": 0,
+        }
+
+    # Prefer lifetime aggregates from memory when available
+    threats_total = int(lifetime_blocked or blocked)
+    blocked_total = int(lifetime_blocked or blocked)
+    avg_risk_total = float(lifetime_avg_risk if mem_stats.get("total_items") else avg_risk)
+    verdict_total = lifetime_verdict_split if mem_stats.get("total_items") else verdict_split
+    risk_series = lifetime_risk_series[-20:] if lifetime_risk_series else risk_over_time[-20:]
+    ts_series = lifetime_ts_series[-20:] if lifetime_ts_series else timestamps[-20:]
+    logs_series = lifetime_logs if lifetime_logs else dashboard_logs
+
+    return {
+        # ORIX dashboard expects these top-level keys
+        "total_scans": int(mem_stats.get("total_tasks") or 0),
+        "threats": threats_total,
+        "blocked": blocked_total,
+        "avg_risk": round(float(avg_risk_total), 3),
+        "risk_over_time": risk_series,
+        "timestamps": ts_series,
+        "attack_types": attack_types,
+        "verdict_split": verdict_total,
+        "logs": logs_series,
+
+        # Keep existing detailed fields for debugging/other UIs
+        "service": "secure-agentic-browser",
+        "task": {
+            "task_id": status.get("task_id"),
+            "status": status.get("status"),
+            "current_step": status.get("current_step"),
+            "max_steps": status.get("max_steps"),
+            "user_request": status.get("user_request"),
+        },
+        "timeline_window": {
+            "window_size": len(steps),
+            "executed": executed,
+            "blocked": blocked,
+            "errors": errors,
+            "avg_step_s": round(avg_step_s, 3),
+            "p95_step_s": round(p95_step_s, 3),
+        },
+        "memory": mem_stats,
+        "logs_debug": {
+            "agent_execution_log_path": str(log_path),
+            "tail_lines": log_tail,
+        },
+    }

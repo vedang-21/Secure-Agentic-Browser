@@ -1,6 +1,8 @@
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import RedirectResponse
 
 # Load environment variables from .env file
 try:
@@ -31,19 +33,17 @@ app.add_middleware(
 # Register API routes
 app.include_router(agent_router, prefix="/api/v1")
 
-@app.get("/")
-async def health_check():
-    return {
-        "status": "healthy", 
-        "service": "Secure Agentic Browser",
-        "version": "1.0.0",
-        "endpoints": {
-            "agent_execute": "POST /api/v1/agent_execute",
-            "task_status": "GET /api/v1/task-status",
-            "stop_task": "POST /api/v1/stop-task",
-            "health": "GET /api/v1/health"
-        }
-    }
+# Serve ORIX dashboard/static pages
+app.mount("/orix", StaticFiles(directory="orix", html=True), name="orix")
+
+@app.get("/", include_in_schema=False)
+async def root_redirect():
+    return RedirectResponse(url="/orix/dashboard.html")
+
+# Keep a health endpoint (moved to /api/v1/health)
+@app.get("/healthz", include_in_schema=False)
+async def healthz():
+    return {"status": "ok"}
 
 if __name__ == "__main__":
     uvicorn.run(

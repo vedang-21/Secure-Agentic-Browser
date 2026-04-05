@@ -281,12 +281,30 @@ class AgentController:
 
                     # Attempt to read current risk verdict from firewall context (if available)
                     trusted = bool(page_context.get("trusted_domain", False)) if isinstance(page_context, dict) else False
+
                     risk_score = 0.0
+                    verdict = "ALLOW"
                     if isinstance(page_context, dict):
-                        try:
-                            risk_score = float(page_context.get("risk_score", 0.0) or 0.0)
-                        except Exception:
-                            risk_score = 0.0
+                        # Prefer explicit firewall fields if present
+                        if page_context.get("verdict"):
+                            verdict = str(page_context.get("verdict") or "ALLOW").upper()
+                        if page_context.get("risk") is not None:
+                            try:
+                                risk_score = float(page_context.get("risk") or 0.0)
+                            except Exception:
+                                risk_score = 0.0
+                        elif page_context.get("risk_score") is not None:
+                            try:
+                                risk_score = float(page_context.get("risk_score") or 0.0)
+                            except Exception:
+                                risk_score = 0.0
+
+                        # If verdict wasn't provided, derive from risk_score
+                        if verdict == "ALLOW":
+                            if risk_score >= 0.65:
+                                verdict = "BLOCK"
+                            elif risk_score >= 0.35:
+                                verdict = "WARN"
 
                     self.memory.add(
                         kind="step",
@@ -301,6 +319,7 @@ class AgentController:
                             "execution_result": execution_result[:800],
                             "trusted": trusted,
                             "risk_score": risk_score,
+                            "verdict": verdict,
                         },
                     )
                 except Exception:
