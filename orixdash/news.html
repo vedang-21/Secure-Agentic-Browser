@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ORIX — Threat Intel</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@300;400;500;600;700;800&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+
+:root {
+  --o:  #ff5500;
+  --o2: #ff7a22;
+  --o3: #ffaa55;
+  --blk: #060606;
+  --card: #0e0e0e;
+  --card2: #111111;
+  --wht: #f0ede8;
+  --gray: #777;
+  --border: rgba(255,85,0,0.10);
+}
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+
+body {
+  background: var(--blk);
+  color: var(--wht);
+  font-family: 'Barlow', sans-serif;
+  overflow-x: hidden;
+}
+
+/* Scanline grain — identical to final.html */
+body::after {
+  content:'';
+  position:fixed; inset:0; z-index:0; margin-top:50px; pointer-events:none;
+  background-image: repeating-linear-gradient(
+    0deg, transparent, transparent 5px,
+    rgba(255,85,0,0.012) 2px, rgba(255,85,0,0.012) 3px
+  );
+}
+
+/* ═══════════════════════
+   NAVBAR — identical to final.html
+═══════════════════════ */
+#navbar {
+  position:fixed; top:0; left:0; right:0; z-index:900;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:18px 52px;
+  background:rgba(6,6,6,0.85);
+  backdrop-filter:blur(20px);
+  border-bottom:1px solid rgba(255,85,0,0.07);
+}
+
+.nav-brand { display:flex; align-items:center; gap:12px; text-decoration:none; }
+
+.radar-logo { position:relative; width:38px; height:38px; flex-shrink:0; }
+.radar-logo svg { width:100%; height:100%; display:block; }
+
+.radar-sweep {
+  position:absolute; top:50%; left:50%;
+  width:calc(50% - 2px); height:1.5px;
+  transform-origin:left center; margin-top:-0.75px;
+  background:linear-gradient(90deg, var(--o), rgba(255,85,0,0));
+  filter:drop-shadow(0 0 5px var(--o));
+  animation:radarSpin 2.6s linear infinite;
+}
+@keyframes radarSpin { to { transform:rotate(360deg); } }
+
+.radar-glow {
+  position:absolute; inset:0; border-radius:50%;
+  background:conic-gradient(from 0deg,
+    rgba(255,85,0,0.22) 0deg, rgba(255,85,0,0) 80deg, transparent 360deg);
+  animation:radarSpin 2.6s linear infinite;
+}
+
+.nav-wordmark {
+  font-family:'Barlow',sans-serif;
+  font-size:20px; letter-spacing:4px; color:var(--o2); font-weight:800;
+}
+
+.nav-links { display:flex; align-items:center; gap:38px; }
+.nav-link {
+  font-size:13px; font-weight:800; letter-spacing:2.5px;
+  color:var(--wht); text-transform:uppercase;
+  text-decoration:none; cursor:pointer; transition:color 0.2s;
+}
+.nav-link:hover { color:var(--o2); }
+.nav-link.active { color:var(--o); border-bottom:1px solid var(--o); padding-bottom:2px; }
+
+.nav-cta {
+  font-family:'Barlow',sans-serif;
+  background:transparent; border:1px solid var(--o);
+  color:var(--o); font-size:11px; font-weight:600;
+  letter-spacing:2.5px; text-transform:uppercase;
+  padding:10px 28px; border-radius:2px; cursor:pointer;
+  transition:all 0.25s;
+}
+.nav-cta:hover { background:var(--o); color:#000; box-shadow:0 0 30px rgba(255,85,0,0.5); }
+
+/* ═══════════════════════
+   PAGE WRAPPER
+═══════════════════════ */
+.page-wrap {
+  padding-top: 80px;
+  min-height: 100vh;
+  position: relative; z-index: 2;
+}
+
+/* ═══════════════════════
+   PAGE HEADER
+═══════════════════════ */
+.page-header {
+  padding: 48px 52px 36px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 24px; flex-wrap: wrap;
+}
+
+.ph-eyebrow {
+  font-family:'DM Mono',monospace;
+  font-size:11px; letter-spacing:3px; text-transform:uppercase;
+  color:var(--o); opacity:0.7; margin-bottom:10px;
+  display:flex; align-items:center; gap:10px;
+}
+.ph-eyebrow::before { content:'//'; opacity:0.5; }
+
+.ph-title {
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(36px,5vw,60px);
+  letter-spacing:0.04em; line-height:1;
+  color:var(--wht);
+}
+
+/* Filter tabs */
+.filter-tabs { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.ftab {
+  font-family:'DM Mono',monospace;
+  font-size:10px; letter-spacing:2px; text-transform:uppercase;
+  padding:8px 18px; border-radius:2px; cursor:pointer;
+  border:1px solid rgba(255,85,0,0.20);
+  color:var(--gray); background:transparent;
+  transition:all 0.2s;
+}
+.ftab:hover { border-color:var(--o); color:var(--wht); }
+.ftab.active {
+  background:rgba(255,85,0,0.12);
+  border-color:var(--o); color:var(--o);
+}
+
+/* ═══════════════════════
+   MAIN CONTENT AREA
+═══════════════════════ */
+.content-area { padding: 40px 52px 80px; }
+
+/* ═══════════════════════
+   FEATURED / BREAKING STORY
+═══════════════════════ */
+.featured-card {
+  background: var(--card);
+  border: 1px solid rgba(255,85,0,0.15);
+  border-radius: 8px;
+  padding: 36px 40px;
+  margin-bottom: 32px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  align-items: start;
+  position: relative; overflow: hidden;
+  transition: border-color 0.3s;
+}
+.featured-card::before {
+  content:'';
+  position:absolute; top:0; left:0; right:0; height:1px;
+  background:linear-gradient(90deg, var(--o), rgba(255,85,0,0.3), transparent);
+}
+.featured-card:hover { border-color:rgba(255,85,0,0.3); }
+
+.breaking-tag {
+  display:inline-flex; align-items:center; gap:8px;
+  font-family:'DM Mono',monospace; font-size:10px;
+  letter-spacing:2.5px; text-transform:uppercase;
+  color:var(--o); margin-bottom:16px;
+}
+.breaking-dot {
+  width:7px; height:7px; background:var(--o); border-radius:50%;
+  animation:blinkDot 1s ease-in-out infinite;
+}
+@keyframes blinkDot { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+.feat-title {
+  font-family:'Barlow',sans-serif;
+  font-size:clamp(20px,2.5vw,28px);
+  font-weight:700; line-height:1.3;
+  color:var(--wht); margin-bottom:12px;
+}
+.feat-meta {
+  font-family:'DM Mono',monospace;
+  font-size:10px; letter-spacing:1px;
+  color:var(--gray); margin-bottom:16px;
+}
+.feat-meta span { color:rgba(255,85,0,0.6); }
+.feat-body {
+  font-size:13px; line-height:1.8;
+  color:#999; font-weight:300;
+}
+
+/* Stats grid inside featured card */
+.feat-stats {
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:1px; background:rgba(255,85,0,0.06);
+  border:1px solid rgba(255,85,0,0.12);
+  border-radius:6px; overflow:hidden;
+  height:fit-content;
+}
+.fstat {
+  background:var(--card2); padding:22px 24px;
+}
+.fstat-lbl {
+  font-family:'DM Mono',monospace; font-size:9px;
+  letter-spacing:2px; text-transform:uppercase;
+  color:var(--gray); margin-bottom:10px;
+}
+.fstat-val {
+  font-family:'Bebas Neue',sans-serif;
+  font-size:36px; letter-spacing:0.03em; line-height:1;
+}
+.fstat-val.red   { color:#ff4444; }
+.fstat-val.orange{ color:var(--o); }
+.fstat-val.yellow{ color:#ffc800; }
+.fstat-val.blue  { color:#44aaff; }
+.fstat-val.white { color:var(--wht); }
+
+/* ═══════════════════════
+   BREACH CHART
+═══════════════════════ */
+.chart-card {
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:8px; padding:28px 32px;
+  margin-bottom:32px;
+  position:relative; overflow:hidden;
+}
+.chart-card::before {
+  content:'';
+  position:absolute; top:0; left:0; right:0; height:1px;
+  background:linear-gradient(90deg, transparent, var(--o), transparent);
+  opacity:0.4;
+}
+.chart-lbl {
+  font-family:'DM Mono',monospace; font-size:10px;
+  letter-spacing:3px; text-transform:uppercase;
+  color:var(--gray); margin-bottom:24px;
+}
+.chart-wrap { height:200px; position:relative; }
+
+/* ═══════════════════════
+   GLOBAL STATS STRIP
+═══════════════════════ */
+.stats-strip {
+  display:grid; grid-template-columns:repeat(4,1fr);
+  gap:1px; background:rgba(255,85,0,0.07);
+  border:1px solid rgba(255,85,0,0.10);
+  border-radius:8px; overflow:hidden;
+  margin-bottom:40px;
+}
+.sstat {
+  background:var(--card2); padding:28px 28px;
+  position:relative; overflow:hidden;
+  transition:background 0.25s;
+}
+.sstat:hover { background:#141414; }
+.sstat::after {
+  content:''; position:absolute; top:0; left:0; right:0; height:1px;
+  background:linear-gradient(90deg,transparent,var(--o),transparent);
+  transform:scaleX(0); transition:transform 0.4s;
+}
+.sstat:hover::after { transform:scaleX(1); }
+.sstat-lbl {
+  font-family:'DM Mono',monospace; font-size:9px;
+  letter-spacing:2.5px; text-transform:uppercase;
+  color:var(--gray); margin-bottom:14px;
+}
+.sstat-val {
+  font-family:'Bebas Neue',sans-serif;
+  font-size:48px; letter-spacing:-1px; line-height:1;
+}
+.sstat-val.red    { color:#ff4444; }
+.sstat-val.orange { color:var(--o); }
+.sstat-val.yellow { color:#ffc800; }
+.sstat-val.white  { color:var(--wht); }
+
+/* ═══════════════════════
+   NEWS CARDS GRID
+═══════════════════════ */
+.grid-label {
+  font-family:'DM Mono',monospace; font-size:10px;
+  letter-spacing:3px; text-transform:uppercase;
+  color:rgba(255,85,0,0.5);
+  margin-bottom:20px;
+  display:flex; align-items:center; gap:10px;
+}
+.grid-label::before { content:'//'; }
+
+.news-grid {
+  display:grid; grid-template-columns:repeat(3,1fr);
+  gap:16px; margin-bottom:16px;
+}
+
+.news-card {
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:8px; padding:28px 26px;
+  display:flex; flex-direction:column;
+  position:relative; overflow:hidden;
+  transition:all 0.25s; cursor:pointer;
+}
+.news-card::after {
+  content:''; position:absolute;
+  top:0; left:0; right:0; height:1px;
+  background:linear-gradient(90deg,transparent,var(--o),transparent);
+  transform:scaleX(0); transition:transform 0.35s;
+}
+.news-card:hover {
+  border-color:rgba(255,85,0,0.25);
+  background:#121212;
+  transform:translateY(-2px);
+  box-shadow:0 12px 40px rgba(0,0,0,0.4), 0 0 20px rgba(255,85,0,0.05);
+}
+.news-card:hover::after { transform:scaleX(1); }
+
+/* Severity badge */
+.sev-badge {
+  display:inline-flex; align-items:center; gap:6px;
+  font-family:'DM Mono',monospace; font-size:9px;
+  letter-spacing:2px; text-transform:uppercase;
+  margin-bottom:14px;
+}
+.sev-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+.sev-badge.critical .sev-dot { background:#ff3333; }
+.sev-badge.critical .sev-label { color:#ff3333; }
+.sev-badge.high     .sev-dot { background:var(--o); }
+.sev-badge.high     .sev-label { color:var(--o); }
+.sev-badge.medium   .sev-dot { background:#ffc800; }
+.sev-badge.medium   .sev-label { color:#ffc800; }
+.sev-badge.low      .sev-dot { background:#44ff88; }
+.sev-badge.low      .sev-label { color:#44ff88; }
+
+.nc-title {
+  font-family:'Barlow',sans-serif;
+  font-size:16px; font-weight:700; line-height:1.35;
+  color:var(--wht); margin-bottom:10px; flex:1;
+}
+.nc-meta {
+  font-family:'DM Mono',monospace; font-size:9px;
+  letter-spacing:1px; color:var(--gray);
+  margin-bottom:12px;
+}
+.nc-desc {
+  font-size:13px; line-height:1.75;
+  color:#888; font-weight:300; flex:1;
+}
+.nc-footer {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-top:20px; padding-top:16px;
+  border-top:1px solid rgba(255,85,0,0.08);
+}
+.nc-impact {
+  font-family:'Bebas Neue',sans-serif;
+  font-size:18px; letter-spacing:0.03em;
+}
+.nc-impact.red    { color:#ff4444; }
+.nc-impact.orange { color:var(--o); }
+.nc-impact.yellow { color:#ffc800; }
+.nc-sector {
+  font-family:'DM Mono',monospace; font-size:9px;
+  letter-spacing:1.5px; text-transform:uppercase;
+  color:var(--gray);
+}
+
+/* ═══════════════════════
+   FOOTER
+═══════════════════════ */
+footer {
+  border-top:1px solid rgba(255,85,0,0.07);
+  padding:36px 52px;
+  display:flex; align-items:center; justify-content:space-between;
+  position:relative; z-index:2;
+}
+.foot-brand { display:flex; align-items:center; gap:10px; }
+.foot-name { font-family:'Barlow',sans-serif; font-size:20px; font-weight:800; letter-spacing:4px; color:var(--o2); }
+.foot-links { display:flex; gap:28px; }
+.foot-link {
+  font-size:11px; color:var(--gray); cursor:pointer;
+  letter-spacing:1px; text-decoration:none; transition:color 0.2s;
+  font-weight:600;
+}
+.foot-link:hover { color:var(--o); }
+.foot-copy { font-family:'DM Mono',monospace; font-size:10px; color:rgba(255,255,255,0.12); }
+
+/* ═══════════════════════
+   SCROLL REVEAL
+═══════════════════════ */
+.reveal {
+  opacity:0; transform:translateY(24px);
+  transition:opacity 0.65s ease, transform 0.65s ease;
+}
+.reveal.on { opacity:1; transform:none; }
+.d1{transition-delay:.04s}.d2{transition-delay:.10s}.d3{transition-delay:.16s}
+.d4{transition-delay:.22s}.d5{transition-delay:.28s}.d6{transition-delay:.34s}
+
+/* ═══════════════════════
+   RESPONSIVE
+═══════════════════════ */
+@media(max-width:1000px){
+  .featured-card { grid-template-columns:1fr; }
+  .news-grid { grid-template-columns:1fr 1fr; }
+  .stats-strip { grid-template-columns:1fr 1fr; }
+}
+@media(max-width:700px){
+  #navbar, .content-area, .page-header, footer { padding-left:20px; padding-right:20px; }
+  .news-grid { grid-template-columns:1fr; }
+  .stats-strip { grid-template-columns:1fr 1fr; }
+  footer { flex-direction:column; gap:16px; text-align:center; }
+  .foot-links { flex-wrap:wrap; justify-content:center; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══ NAVBAR ══ -->
+<nav id="navbar">
+  <div class="nav-brand">
+    <div class="radar-logo">
+      <svg viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="19" cy="19" r="17.5" stroke="#ff5500" stroke-width="1.5"/>
+        <circle cx="19" cy="19" r="13"   stroke="#ff5500" stroke-width="0.7" opacity="0.55"/>
+        <circle cx="19" cy="19" r="8.5"  stroke="#ff5500" stroke-width="0.7" opacity="0.4"/>
+        <circle cx="19" cy="19" r="4"    stroke="#ff5500" stroke-width="0.7" opacity="0.3"/>
+        <line x1="19" y1="1.5" x2="19" y2="36.5" stroke="#ff5500" stroke-width="0.4" opacity="0.22"/>
+        <line x1="1.5" y1="19" x2="36.5" y2="19" stroke="#ff5500" stroke-width="0.4" opacity="0.22"/>
+        <line x1="6" y1="6" x2="32" y2="32" stroke="#ff5500" stroke-width="0.3" opacity="0.14"/>
+        <line x1="32" y1="6" x2="6" y2="32" stroke="#ff5500" stroke-width="0.3" opacity="0.14"/>
+        <circle cx="19" cy="19" r="2.5" fill="#ff5500"/>
+      </svg>
+      <div class="radar-glow"></div>
+      <div class="radar-sweep"></div>
+    </div>
+    <div class="nav-wordmark">ORIX</div>
+  </div>
+
+  <div class="nav-links">
+    <a class="nav-link" href="final.html">PRODUCT</a>
+    <a class="nav-link" href="dashboard.html">DASHBOARD</a>
+    <a class="nav-link active" href="news.html">THREAT INTEL</a>
+  </div>
+
+  <button class="nav-cta">GET STARTED</button>
+</nav>
+
+<!-- ══ PAGE ══ -->
+<div class="page-wrap">
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="ph-left">
+      <div class="ph-eyebrow">Threat Intelligence Feed</div>
+      <div class="ph-title">Global Breach Monitor</div>
+    </div>
+    <div class="filter-tabs" id="filterTabs">
+      <button class="ftab active" data-filter="all">ALL</button>
+      <button class="ftab" data-filter="critical">CRITICAL</button>
+      <button class="ftab" data-filter="ai">AI ATTACKS</button>
+      <button class="ftab" data-filter="leak">DATA LEAKS</button>
+    </div>
+  </div>
+
+  <div class="content-area">
+
+    <!-- FEATURED BREAKING CARD -->
+    <div class="featured-card reveal">
+      <div>
+        <div class="breaking-tag">
+          <div class="breaking-dot"></div>
+          BREAKING — CRITICAL
+        </div>
+        <div class="feat-title">Major cloud provider suffers AI agent credential hijack — 4.2M records exposed</div>
+        <div class="feat-meta">Apr 01, 2026 &nbsp;·&nbsp; <span>Reuters Technology</span> &nbsp;·&nbsp; Confirmed</div>
+        <p class="feat-body">Attackers used prompt injection embedded in seemingly legitimate task pages to redirect an enterprise AI agent's actions, exfiltrating OAuth tokens and user PII over 72 hours before detection. Security researchers confirmed this is the first large-scale AI agent supply-chain breach.</p>
+      </div>
+      <div class="feat-stats">
+        <div class="fstat">
+          <div class="fstat-lbl">Records exposed</div>
+          <div class="fstat-val red">4.2M</div>
+        </div>
+        <div class="fstat">
+          <div class="fstat-lbl">Detection time</div>
+          <div class="fstat-val yellow">72h</div>
+        </div>
+        <div class="fstat">
+          <div class="fstat-lbl">Attack vector</div>
+          <div class="fstat-val blue" style="font-size:22px;padding-top:4px">Prompt Injection</div>
+        </div>
+        <div class="fstat">
+          <div class="fstat-lbl">Est. damage</div>
+          <div class="fstat-val orange">$340M</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BREACH VOLUME CHART -->
+    <div class="chart-card reveal">
+      <div class="chart-lbl">Global Data Breach Volume — Past 12 Months (Millions of Records)</div>
+      <div class="chart-wrap">
+        <canvas id="breachChart"></canvas>
+      </div>
+    </div>
+
+    <!-- GLOBAL STATS STRIP -->
+    <div class="stats-strip reveal">
+      <div class="sstat">
+        <div class="sstat-lbl">Breaches in 2025–26</div>
+        <div class="sstat-val red" id="sc1">0</div>
+      </div>
+      <div class="sstat">
+        <div class="sstat-lbl">Records Compromised</div>
+        <div class="sstat-val orange" id="sc2">0</div>
+      </div>
+      <div class="sstat">
+        <div class="sstat-lbl">AI-Vector Attacks</div>
+        <div class="sstat-val yellow">↑ <span id="sc3">0</span>%</div>
+      </div>
+      <div class="sstat">
+        <div class="sstat-lbl">Avg. Breach Cost</div>
+        <div class="sstat-val white">$<span id="sc4">0</span>M</div>
+      </div>
+    </div>
+
+    <!-- NEWS GRID — ROW 1 -->
+    <div class="grid-label">Latest Intelligence</div>
+    <div class="news-grid" id="newsGrid">
+
+      <div class="news-card reveal d1" data-cat="critical ai">
+        <div class="sev-badge critical"><div class="sev-dot"></div><div class="sev-label">CRITICAL</div></div>
+        <div class="nc-title">Healthcare AI assistant manipulated to harvest patient records</div>
+        <div class="nc-meta">Mar 28, 2026 &nbsp;·&nbsp; Dark Reading</div>
+        <div class="nc-desc">Attackers embedded invisible instructions in appointment booking pages. The AI agent silently forwarded medical records to attacker-controlled endpoints over 3 weeks.</div>
+        <div class="nc-footer">
+          <div class="nc-impact red">890K <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gray);letter-spacing:1px">records</span></div>
+          <div class="nc-sector">Healthcare</div>
+        </div>
+      </div>
+
+      <div class="news-card reveal d2" data-cat="critical ai">
+        <div class="sev-badge critical"><div class="sev-dot"></div><div class="sev-label">CRITICAL</div></div>
+        <div class="nc-title">Financial services firm loses $62M to AI agent phishing chain</div>
+        <div class="nc-meta">Mar 25, 2026 &nbsp;·&nbsp; Bloomberg</div>
+        <div class="nc-desc">Crafted phishing pages with fake MFA prompts successfully captured credentials from an autonomous trading agent. Funds transferred within minutes of token theft.</div>
+        <div class="nc-footer">
+          <div class="nc-impact orange">$62M <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gray);letter-spacing:1px">lost</span></div>
+          <div class="nc-sector">Finance</div>
+        </div>
+      </div>
+
+      <div class="news-card reveal d3" data-cat="high ai">
+        <div class="sev-badge high"><div class="sev-dot"></div><div class="sev-label">HIGH</div></div>
+        <div class="nc-title">Obfuscated Unicode attack bypasses LLM safety filters</div>
+        <div class="nc-meta">Mar 22, 2026 &nbsp;·&nbsp; The Hacker News</div>
+        <div class="nc-desc">Researchers demonstrate homoglyph substitution technique that fools tokenizers, causing AI agents to execute unauthorized commands while appearing to follow safety guidelines.</div>
+        <div class="nc-footer">
+          <div class="nc-impact yellow">14 <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gray);letter-spacing:1px">orgs affected</span></div>
+          <div class="nc-sector">Research</div>
+        </div>
+      </div>
+
+      <div class="news-card reveal d1" data-cat="high ai">
+        <div class="sev-badge high"><div class="sev-dot"></div><div class="sev-label">HIGH</div></div>
+        <div class="nc-title">E-commerce bots exploited via hidden DOM instruction injection</div>
+        <div class="nc-meta">Mar 19, 2026 &nbsp;·&nbsp; Wired</div>
+        <div class="nc-desc">A coordinated campaign injected hidden task-override instructions into product description fields, causing autonomous shopping agents to exfiltrate payment data.</div>
+        <div class="nc-footer">
+          <div class="nc-impact orange">220K <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gray);letter-spacing:1px">accounts</span></div>
+          <div class="nc-sector">E-Commerce</div>
+        </div>
+      </div>
+
+      <div class="news-card reveal d2" data-cat="leak">
+        <div class="sev-badge medium"><div class="sev-dot"></div><div class="sev-label">MEDIUM</div></div>
+        <div class="nc-title">EU mandates security audits for all deployed AI browser agents</div>
+        <div class="nc-meta">Mar 15, 2026 &nbsp;·&nbsp; Euractiv</div>
+        <div class="nc-desc">European Commission issues emergency directive requiring all organizations deploying web-browsing AI agents to undergo third-party security audits within 90 days.</div>
+        <div class="nc-footer">
+          <div class="nc-impact yellow">90 <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gray);letter-spacing:1px">day deadline</span></div>
+          <div class="nc-sector">Regulation</div>
+        </div>
+      </div>
+
+      <div class="news-card reveal d3" data-cat="high ai">
+        <div class="sev-badge high"><div class="sev-dot"></div><div class="sev-label">HIGH</div></div>
+        <div class="nc-title">Nation-state group targets AI research labs via agent supply chain</div>
+        <div class="nc-meta">Mar 12, 2026 &nbsp;·&nbsp; CyberScoop</div>
+        <div class="nc-desc">APT cluster attributed to state-sponsored actors compromised three AI research firms by injecting malicious instructions into public datasets used for agent fine-tuning.</div>
+        <div class="nc-footer">
+          <div class="nc-impact red">3 <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gray);letter-spacing:1px">labs breached</span></div>
+          <div class="nc-sector">Nation-State</div>
+        </div>
+      </div>
+
+      <div class="news-card reveal d1" data-cat="high leak">
+        <div class="sev-badge high"><div class="sev-dot"></div><div class="sev-label">HIGH</div></div>
+        <div class="nc-title">Government contractor exposes 18M citizen records via misconfigured agent pipeline</div>
+        <div class="nc-meta">Mar 09, 2026 &nbsp;·&nbsp; ProPublica</div>
+        <div class="nc-desc">An AI document-processing agent with excess permissions inadvertently indexed and exposed sensitive government records through a misconfigured API endpoint for 11 days.</div>
+        <div class="nc-footer">
+          <div class="nc-impact orange">18M <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gray);letter-spacing:1px">records</span></div>
+          <div class="nc-sector">Government</div>
+        </div>
+      </div>
+
+      <div class="news-card reveal d2" data-cat="ai">
+        <div class="sev-badge medium"><div class="sev-dot"></div><div class="sev-label">MEDIUM</div></div>
+        <div class="nc-title">Researchers release open-source prompt injection detection benchmark</div>
+        <div class="nc-meta">Mar 05, 2026 &nbsp;·&nbsp; arXiv</div>
+        <div class="nc-desc">A team from Stanford releases PIBench-2026 covering 8,400 attack scenarios across 14 LLM families, establishing the first standardized evaluation framework for agentic security.</div>
+        <div class="nc-footer">
+          <div class="nc-impact yellow">8.4K <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gray);letter-spacing:1px">scenarios</span></div>
+          <div class="nc-sector">Research</div>
+        </div>
+      </div>
+
+      <div class="news-card reveal d3" data-cat="critical leak">
+        <div class="sev-badge critical"><div class="sev-dot"></div><div class="sev-label">CRITICAL</div></div>
+        <div class="nc-title">Zero-day in popular agent framework allows remote code execution via web content</div>
+        <div class="nc-meta">Mar 01, 2026 &nbsp;·&nbsp; BleepingComputer</div>
+        <div class="nc-desc">CVE-2026-1147 affects a widely-used autonomous agent framework. A crafted webpage can trigger RCE in the agent's execution sandbox, bypassing all existing sandboxing protections.</div>
+        <div class="nc-footer">
+          <div class="nc-impact red">CVE-2026-1147</div>
+          <div class="nc-sector">Zero-Day</div>
+        </div>
+      </div>
+
+    </div><!-- /news-grid -->
+
+  </div><!-- /content-area -->
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="foot-brand">
+      <svg width="26" height="26" viewBox="0 0 38 38" fill="none">
+        <circle cx="19" cy="19" r="17.5" stroke="#ff5500" stroke-width="1.5"/>
+        <circle cx="19" cy="19" r="12" stroke="#ff5500" stroke-width="0.7" opacity="0.5"/>
+        <circle cx="19" cy="19" r="7"  stroke="#ff5500" stroke-width="0.7" opacity="0.4"/>
+        <circle cx="19" cy="19" r="2.5" fill="#ff5500"/>
+        <line x1="19" y1="19" x2="32" y2="10" stroke="#ff5500" stroke-width="1.2" opacity="0.85"/>
+      </svg>
+      <div class="foot-name">ORIX</div>
+    </div>
+    <div class="foot-links">
+      <a class="foot-link" href="final.html">Product</a>
+      <a class="foot-link" href="#">Dashboard</a>
+      <a class="foot-link" href="#">Intel Feed</a>
+    </div>
+    <div class="foot-copy">© 2026 ORIX</div>
+  </footer>
+</div>
+
+<script>
+/* ── CHART ── */
+const ctx = document.getElementById('breachChart').getContext('2d');
+new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: ['May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr'],
+    datasets: [{
+      data: [148, 162, 175, 192, 158, 215, 248, 290, 320, 355, 388, 460],
+      borderColor: '#ff5500',
+      backgroundColor: 'rgba(255,85,0,0.06)',
+      fill: true,
+      tension: 0.45,
+      pointBackgroundColor: '#ff5500',
+      pointRadius: 4,
+      pointHoverRadius: 7,
+      borderWidth: 2,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#111',
+        titleColor: '#ff5500',
+        bodyColor: '#888',
+        borderColor: 'rgba(255,85,0,0.2)',
+        borderWidth: 1,
+        titleFont: { family: 'DM Mono', size: 11 },
+        callbacks: { label: ctx => ctx.parsed.y + 'M records' }
+      }
+    },
+    scales: {
+      x: {
+        ticks: { color:'#555', font:{ family:'DM Mono', size:10 } },
+        grid:  { color:'rgba(255,85,0,0.05)' }
+      },
+      y: {
+        ticks: {
+          color:'#555', font:{ family:'DM Mono', size:10 },
+          callback: v => v + 'M'
+        },
+        grid: { color:'rgba(255,85,0,0.05)' }
+      }
+    }
+  }
+});
+
+/* ── COUNTERS ── */
+function animCount(el, target, suffix='', dur=1800) {
+  const start = performance.now();
+  (function tick(now) {
+    const p = Math.min((now - start) / dur, 1);
+    const e = 1 - Math.pow(1 - p, 4);
+    el.textContent = (target >= 1000
+      ? (e * target / 1000).toFixed(1) + 'B'
+      : Math.round(e * target).toLocaleString()) + suffix;
+    if (p < 1) requestAnimationFrame(tick);
+  })(start);
+}
+
+const counterData = {
+  sc1: { target: 4812, fmt: 'comma' },
+  sc2: { target: 2100, fmt: 'B' },     // displayed as 2.1B
+  sc3: { target: 340,  fmt: 'plain' },
+  sc4: { target: 4.9,  fmt: 'decimal' }
+};
+
+function runCounters() {
+  const dur = 2000;
+  const start = performance.now();
+
+  // sc1 — 4,812
+  ;(function tick(now) {
+    const p = Math.min((now-start)/dur,1), e=1-Math.pow(1-p,4);
+    document.getElementById('sc1').textContent = Math.round(e*4812).toLocaleString();
+    if(p<1) requestAnimationFrame(tick);
+  })(start);
+
+  // sc2 — 2.1B
+  ;(function tick(now) {
+    const p = Math.min((now-start)/dur,1), e=1-Math.pow(1-p,4);
+    document.getElementById('sc2').textContent = (e*2.1).toFixed(1)+'B';
+    if(p<1) requestAnimationFrame(tick);
+  })(start);
+
+  // sc3 — 340%
+  ;(function tick(now) {
+    const p = Math.min((now-start)/dur,1), e=1-Math.pow(1-p,4);
+    document.getElementById('sc3').textContent = Math.round(e*340);
+    if(p<1) requestAnimationFrame(tick);
+  })(start);
+
+  // sc4 — 4.9M
+  ;(function tick(now) {
+    const p = Math.min((now-start)/dur,1), e=1-Math.pow(1-p,4);
+    document.getElementById('sc4').textContent = (e*4.9).toFixed(1);
+    if(p<1) requestAnimationFrame(tick);
+  })(start);
+}
+
+/* ── SCROLL REVEAL + COUNTERS ── */
+const revObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('on'); revObs.unobserve(e.target); }
+  });
+}, { threshold: 0.08 });
+document.querySelectorAll('.reveal').forEach(el => revObs.observe(el));
+
+// Trigger counters when strip enters view
+const stripObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) { runCounters(); stripObs.disconnect(); }
+  });
+}, { threshold: 0.3 });
+const strip = document.querySelector('.stats-strip');
+if (strip) stripObs.observe(strip);
+
+/* ── FILTER TABS ── */
+document.querySelectorAll('.ftab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.ftab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const filter = btn.dataset.filter;
+    document.querySelectorAll('.news-card').forEach(card => {
+      if (filter === 'all') {
+        card.style.display = '';
+      } else {
+        const cats = card.dataset.cat || '';
+        card.style.display = cats.includes(filter) ? '' : 'none';
+      }
+    });
+  });
+});
+
+/* ── NAVBAR SCROLL ── */
+window.addEventListener('scroll', () => {
+  const nav = document.getElementById('navbar');
+  nav.style.background = window.scrollY > 40
+    ? 'rgba(6,6,6,0.97)'
+    : 'rgba(6,6,6,0.85)';
+}, { passive: true });
+</script>
+</body>
+</html>
