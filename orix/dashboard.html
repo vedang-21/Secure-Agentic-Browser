@@ -56,7 +56,7 @@ body::after {
 }
 @keyframes navFadeIn { from{opacity:0} to{opacity:1} }
  
-.nav-brand { display:flex; align-items:center; gap:12px; text-decoration:none; cursor:pointer; }
+.nav-brand { display:flex; align-items:center; gap:5px; text-decoration:none; cursor:pointer; }
  
 .radar-logo { position:relative; width:38px; height:38px; flex-shrink:0; }
 .radar-logo svg { width:100%; height:100%; display:block; }
@@ -92,23 +92,16 @@ body::after {
   font-size:20px; letter-spacing:4px; color:var(--o2); font-weight:800;
 }
  
-.nav-links { display:flex; align-items:center; gap:38px; }
+.nav-links { display:flex; align-items:center; gap:38px;}
 .nav-link {
   font-size:13px; font-weight:800; letter-spacing:2.5px;
   color:var(--wht); text-transform:uppercase;
   text-decoration:none; cursor:pointer; transition:color 0.2s;
+  
 }
 .nav-link:hover { color:var(--o2); }
 .nav-link.active { color:var(--o); border-bottom:2px solid var(--o); padding-bottom:2px; }
  
-.nav-cta {
-  font-family:'Barlow',sans-serif;
-  background:transparent; border:1px solid var(--o);
-  color:var(--o); font-size:11px; font-weight:600;
-  letter-spacing:2.5px; text-transform:uppercase;
-  padding:10px 28px; border-radius:2px; cursor:pointer; transition:all 0.25s;
-}
-.nav-cta:hover { background:var(--o); color:#000; box-shadow:0 0 30px rgba(255,85,0,0.5); }
  
 /* ═══════════════════════
    LAYOUT
@@ -133,37 +126,31 @@ body::after {
   position:absolute; top:-100px; right:-100px;
   width:400px; height:300px;
   background:radial-gradient(ellipse at center,
-    rgba(255,85,0,0.16) 0%, rgba(255,60,0,0.05) 50%, transparent 70%);
+    rgba(255,85,0,0.16) 0%, rgba(255, 115, 0, 0.015) 50%, transparent 70%);
   border-radius:50%; filter:blur(60px);
   pointer-events:none;
 }
  
 .dh-title {
   font-family:'Bebas Neue',sans-serif;
-  font-size:clamp(44px,5vw,68px);
+  font-size:clamp(60px,5vw,68px);
   letter-spacing:0.04em; line-height:1;
-  background:linear-gradient(155deg, var(--wht) 0%, #ffd0a8 50%, var(--o) 100%);
+  background:linear-gradient(155deg, var(--wht) 0%, #ffd0a8 25%, var(--o) 100%);
   -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
   margin-bottom:8px;
 }
  
 .dh-sub {
   font-family:'DM Mono',monospace;
-  font-size:11px; letter-spacing:2px; color:var(--gray);
+  font-size:15px; letter-spacing:2px; color:var(--gray);
 }
  
 .dh-status {
   display:inline-flex; align-items:center; gap:8px;
-  font-family:'DM Mono',monospace; font-size:10px;
+  font-family:'DM Mono',monospace; font-size:14px;
   letter-spacing:2.5px; text-transform:uppercase;
-  color:#44cc77; margin-top:14px;
+  color:var(--o2); margin-top:14px;
 }
-.status-dot {
-  width:8px; height:8px; background:#44cc77; border-radius:50%;
-  box-shadow: 0 0 8px #44cc77;
-  animation:statusPulse 1.8s ease-in-out infinite;
-}
-@keyframes statusPulse { 0%,100%{opacity:1;box-shadow:0 0 8px #44cc77} 50%{opacity:0.5;box-shadow:none} }
  
 /* ═══════════════════════
    MAIN GRID
@@ -198,9 +185,10 @@ body::after {
 .stat-card:hover::after { opacity:1; }
  
 .sc-label {
-  font-family:'DM Mono',monospace; font-size:9px;
+  font-family:'DM Mono',monospace; font-size:18px;
   letter-spacing:3px; text-transform:uppercase;
   color:var(--gray); margin-bottom:16px;
+  font-weight:700;
 }
 .sc-value {
   font-family:'Bebas Neue',sans-serif;
@@ -208,10 +196,10 @@ body::after {
   color:var(--wht);
 }
 .sc-delta {
-  font-family:'DM Mono',monospace; font-size:10px;
-  letter-spacing:1px; margin-top:10px; color:#44cc77;
+  font-family:'DM Mono',monospace; font-size:15px;
+  letter-spacing:1px; margin-top:10px; color:var(--o);
 }
-.sc-delta.down { color:#ff6644; }
+.sc-delta.down { color: var(--o3) }
  
 /* ── CHARTS ROW ── */
 .charts-row {
@@ -229,9 +217,10 @@ body::after {
 }
  
 .cc-label {
-  font-family:'DM Mono',monospace; font-size:10px;
+  font-family:'DM Mono',monospace; font-size:15px;
   letter-spacing:3px; text-transform:uppercase;
   color:rgba(255,85,0,0.55); margin-bottom:20px;
+  font-weight: 700;
 }
 .chart-wrap { position:relative; height:200px; }
  
@@ -252,10 +241,10 @@ body::after {
 }
 .lc-title {
   font-family:'Bebas Neue',sans-serif;
-  font-size:26px; letter-spacing:0.04em; color:var(--wht);
+  font-size:40px; letter-spacing:0.04em; color:var(--wht);
 }
 .lc-count {
-  font-family:'DM Mono',monospace; font-size:10px;
+  font-family:'DM Mono',monospace; font-size:17px;
   letter-spacing:2px; color:var(--gray);
 }
  
@@ -263,9 +252,9 @@ body::after {
 .log-table { width:100%; border-collapse:collapse; }
  
 .log-table thead th {
-  font-family:'DM Mono',monospace; font-size:9px;
+  font-family:'DM Mono',monospace; font-size:17px;
   letter-spacing:3px; text-transform:uppercase;
-  color:var(--gray); padding:10px 16px;
+  color:var(--wht); padding:10px 16px;
   text-align:left; border-bottom:1px solid rgba(255,85,0,0.08);
   font-weight:400;
 }
@@ -281,9 +270,9 @@ body::after {
   padding:15px 16px; font-size:13px; color:#aaa; vertical-align:middle;
 }
  
-.td-ts { font-family:'DM Mono',monospace; font-size:11px; color:var(--gray); }
-.td-url { font-family:'DM Mono',monospace; font-size:12px; color:#ccc; }
-.td-risk { font-family:'DM Mono',monospace; font-size:13px; font-weight:400; }
+.td-ts { font-family:'DM Mono',monospace; font-size:14px; color:var(--gray); }
+.td-url { font-family:'DM Mono',monospace; font-size:15px; color:#ccc; }
+.td-risk { font-family:'DM Mono',monospace; font-size:17px; font-weight:400; }
 .td-risk.high   { color:#ff4444; }
 .td-risk.med    { color:#ffc800; }
 .td-risk.low    { color:#44cc77; }
@@ -291,7 +280,7 @@ body::after {
 /* Verdict pill */
 .vpill {
   display:inline-block; padding:4px 12px; border-radius:2px;
-  font-family:'DM Mono',monospace; font-size:9px;
+  font-family:'DM Mono',monospace; font-size:15px;
   font-weight:400; letter-spacing:2px; text-transform:uppercase;
   border:1px solid transparent;
 }
@@ -300,7 +289,7 @@ body::after {
 .vpill.WARN    { background:rgba(255,200,0,0.10);  color:#ffc800; border-color:rgba(255,200,0,0.25); }
 .vpill.CONFIRM { background:rgba(255,85,0,0.10);   color:var(--o2); border-color:rgba(255,85,0,0.25); }
  
-.td-explain { font-size:13px; color:#777; font-weight:300; }
+.td-explain { font-size:15px; color:#777; font-weight:300; }
  
 /* ═══════════════════════
    FOOTER — identical to final.html
@@ -314,7 +303,7 @@ footer {
 .foot-brand { display:flex; align-items:center; gap:10px; }
 .foot-name { font-family:'Barlow',sans-serif; font-size:20px; font-weight:800; letter-spacing:4px; color:var(--o2); }
 .foot-links { display:flex; gap:28px; }
-.foot-link { font-size:11px; color:var(--gray); cursor:pointer; letter-spacing:1px; text-decoration:none; transition:color 0.2s; font-weight:600; }
+.foot-link { font-size:15px; color:var(--gray); cursor:pointer; letter-spacing:1px; text-decoration:none; transition:color 0.2s; font-weight:600; }
 .foot-link:hover { color:var(--o); }
 .foot-copy { font-family:'DM Mono',monospace; font-size:10px; color:rgba(255,255,255,0.12); }
  
@@ -366,13 +355,11 @@ footer {
     <div class="nav-wordmark">ORIX</div>
   </div>
  
-  <div class="nav-links">
+  <div class="nav-links" style="position:absolute;left:50%;transform:translateX(-50%);">
     <a class="nav-link" href="final.html">PRODUCT</a>
     <a class="nav-link active" href="dashboard.html">DASHBOARD</a>
     <a class="nav-link" href="news.html">THREAT INTEL</a>
   </div>
- 
-  <button class="nav-cta">GET STARTED</button>
 </nav>
  
 <!-- ══ PAGE ══ -->
@@ -382,7 +369,7 @@ footer {
   <div class="dash-header">
     <div class="dh-title">Security Dashboard</div>
     <div class="dh-sub">firewall/metrics.json — refreshed on load</div>
-    <div class="dh-status"><div class="status-dot"></div>SYSTEM ONLINE // ALL LAYERS ACTIVE</div>
+    <div class="dh-status">A real-time log of every ALLOW / WARN / BLOCK decision.</div>
   </div>
  
   <!-- DASHBOARD BODY -->
@@ -680,7 +667,8 @@ async function refresh() {
 
 // Kick off
 refresh();
-setInterval(refresh, 1500);
+// Fetch only on page load (and when the user refreshes the page manually).
+// setInterval(refresh, 1500);
 
 /* ══════════════════
    SCROLL REVEAL

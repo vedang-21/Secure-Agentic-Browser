@@ -88,16 +88,6 @@ body::after {
 .nav-link:hover { color:var(--o2); }
 .nav-link.active { color:var(--o); border-bottom:1px solid var(--o); padding-bottom:2px; }
 
-.nav-cta {
-  font-family:'Barlow',sans-serif;
-  background:transparent; border:1px solid var(--o);
-  color:var(--o); font-size:11px; font-weight:600;
-  letter-spacing:2.5px; text-transform:uppercase;
-  padding:10px 28px; border-radius:2px; cursor:pointer;
-  transition:all 0.25s;
-}
-.nav-cta:hover { background:var(--o); color:#000; box-shadow:0 0 30px rgba(255,85,0,0.5); }
-
 /* ═══════════════════════
    PAGE WRAPPER
 ═══════════════════════ */
@@ -119,9 +109,10 @@ body::after {
 
 .ph-eyebrow {
   font-family:'DM Mono',monospace;
-  font-size:11px; letter-spacing:3px; text-transform:uppercase;
+  font-size:15px; letter-spacing:3px; text-transform:uppercase;
   color:var(--o); opacity:0.7; margin-bottom:10px;
   display:flex; align-items:center; gap:10px;
+  font-width: 700;
 }
 .ph-eyebrow::before { content:'//'; opacity:0.5; }
 
@@ -129,7 +120,9 @@ body::after {
   font-family:'Bebas Neue',sans-serif;
   font-size:clamp(36px,5vw,60px);
   letter-spacing:0.04em; line-height:1;
-  color:var(--wht);
+  background:linear-gradient(155deg, var(--wht) 0%, #ffd0a8 50%, var(--o) 100%);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+  margin-bottom:8px;
 }
 
 /* Filter tabs */
@@ -196,12 +189,12 @@ body::after {
 }
 .feat-meta {
   font-family:'DM Mono',monospace;
-  font-size:10px; letter-spacing:1px;
+  font-size:15px; letter-spacing:1px;
   color:var(--gray); margin-bottom:16px;
 }
 .feat-meta span { color:rgba(255,85,0,0.6); }
 .feat-body {
-  font-size:13px; line-height:1.8;
+  font-size:16px; line-height:1.8;
   color:#999; font-weight:300;
 }
 
@@ -217,18 +210,18 @@ body::after {
   background:var(--card2); padding:22px 24px;
 }
 .fstat-lbl {
-  font-family:'DM Mono',monospace; font-size:9px;
+  font-family:'DM Mono',monospace; font-size:14px;
   letter-spacing:2px; text-transform:uppercase;
   color:var(--gray); margin-bottom:10px;
 }
 .fstat-val {
   font-family:'Bebas Neue',sans-serif;
-  font-size:36px; letter-spacing:0.03em; line-height:1;
+  font-size:38px; letter-spacing:0.03em; line-height:1;
 }
 .fstat-val.red   { color:#ff4444; }
 .fstat-val.orange{ color:var(--o); }
 .fstat-val.yellow{ color:#ffc800; }
-.fstat-val.blue  { color:#44aaff; }
+.fstat-val.blue  { color:#ffc800; }
 .fstat-val.white { color:var(--wht); }
 
 /* ═══════════════════════
@@ -248,9 +241,9 @@ body::after {
   opacity:0.4;
 }
 .chart-lbl {
-  font-family:'DM Mono',monospace; font-size:10px;
+  font-family:'DM Mono',monospace; font-size:17px;
   letter-spacing:3px; text-transform:uppercase;
-  color:var(--gray); margin-bottom:24px;
+  color:var(--wht); margin-bottom:24px;
 }
 .chart-wrap { height:200px; position:relative; }
 
@@ -277,7 +270,7 @@ body::after {
 }
 .sstat:hover::after { transform:scaleX(1); }
 .sstat-lbl {
-  font-family:'DM Mono',monospace; font-size:9px;
+  font-family:'DM Mono',monospace; font-size:13px;
   letter-spacing:2.5px; text-transform:uppercase;
   color:var(--gray); margin-bottom:14px;
 }
@@ -294,9 +287,10 @@ body::after {
    NEWS CARDS GRID
 ═══════════════════════ */
 .grid-label {
-  font-family:'DM Mono',monospace; font-size:10px;
+  font-family:'DM Mono',monospace; font-size:15px;
   letter-spacing:3px; text-transform:uppercase;
-  color:rgba(255,85,0,0.5);
+  color: var(--o);
+  font-weight: 900;
   margin-bottom:20px;
   display:flex; align-items:center; gap:10px;
 }
@@ -329,51 +323,36 @@ body::after {
 }
 .news-card:hover::after { transform:scaleX(1); }
 
-/* Severity badge */
-.sev-badge {
-  display:inline-flex; align-items:center; gap:6px;
-  font-family:'DM Mono',monospace; font-size:9px;
-  letter-spacing:2px; text-transform:uppercase;
-  margin-bottom:14px;
-}
-.sev-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
-.sev-badge.critical .sev-dot { background:#ff3333; }
-.sev-badge.critical .sev-label { color:#ff3333; }
-.sev-badge.high     .sev-dot { background:var(--o); }
-.sev-badge.high     .sev-label { color:var(--o); }
-.sev-badge.medium   .sev-dot { background:#ffc800; }
-.sev-badge.medium   .sev-label { color:#ffc800; }
-.sev-badge.low      .sev-dot { background:#44ff88; }
-.sev-badge.low      .sev-label { color:#44ff88; }
 
 .nc-title {
   font-family:'Barlow',sans-serif;
-  font-size:16px; font-weight:700; line-height:1.35;
+  font-size:18px; font-weight:500; line-height:1.35;
   color:var(--wht); margin-bottom:10px; flex:1;
 }
 .nc-meta {
-  font-family:'DM Mono',monospace; font-size:9px;
-  letter-spacing:1px; color:var(--gray);
+  font-family:Verdana, Geneva, Tahoma; font-size:13px;
+  letter-spacing:1px; color:var(--o3);
   margin-bottom:12px;
 }
 .nc-desc {
-  font-size:13px; line-height:1.75;
+  font-size:14px; line-height:1.75;
   color:#888; font-weight:300; flex:1;
 }
 .nc-footer {
   display:flex; align-items:center; justify-content:space-between;
   margin-top:20px; padding-top:16px;
   border-top:1px solid rgba(255,85,0,0.08);
+  font-size: 12px;
 }
 .nc-impact {
   font-family:'Bebas Neue',sans-serif;
-  font-size:18px; letter-spacing:0.03em;
+  font-size:25px; letter-spacing:0.03em;
 }
 .nc-impact.red    { color:#ff4444; }
 .nc-impact.orange { color:var(--o); }
 .nc-impact.yellow { color:#ffc800; }
 .nc-sector {
-  font-family:'DM Mono',monospace; font-size:9px;
+  font-family:'DM Mono',monospace; font-size:11px;
   letter-spacing:1.5px; text-transform:uppercase;
   color:var(--gray);
 }
@@ -412,6 +391,13 @@ footer {
 /* ═══════════════════════
    RESPONSIVE
 ═══════════════════════ */
+/* Make <a> news cards look identical to div cards */
+a.news-card { color: inherit; }
+a.featured-card { color: inherit; grid-template-columns: 1fr 1fr; }
+
+/* Navbar needs relative so absolute-centered links work */
+#navbar { position: fixed; }
+
 @media(max-width:1000px){
   .featured-card { grid-template-columns:1fr; }
   .news-grid { grid-template-columns:1fr 1fr; }
@@ -429,7 +415,7 @@ footer {
 <body>
 
 <!-- ══ NAVBAR ══ -->
-<nav id="navbar">
+<nav id="navbar" style="display:flex;align-items:center;justify-content:space-between;">
   <div class="nav-brand">
     <div class="radar-logo">
       <svg viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -449,13 +435,15 @@ footer {
     <div class="nav-wordmark">ORIX</div>
   </div>
 
-  <div class="nav-links">
+  <!-- CENTER: nav links -->
+  <div class="nav-links" style="position:absolute;left:50%;transform:translateX(-50%);">
     <a class="nav-link" href="final.html">PRODUCT</a>
     <a class="nav-link" href="dashboard.html">DASHBOARD</a>
     <a class="nav-link active" href="news.html">THREAT INTEL</a>
   </div>
 
-  <button class="nav-cta">GET STARTED</button>
+  <!-- RIGHT: empty spacer to keep brand left-anchored -->
+  <div style="width:160px;"></div>
 </nav>
 
 <!-- ══ PAGE ══ -->
@@ -467,50 +455,44 @@ footer {
       <div class="ph-eyebrow">Threat Intelligence Feed</div>
       <div class="ph-title">Global Breach Monitor</div>
     </div>
-    <div class="filter-tabs" id="filterTabs">
-      <button class="ftab active" data-filter="all">ALL</button>
-      <button class="ftab" data-filter="critical">CRITICAL</button>
-      <button class="ftab" data-filter="ai">AI ATTACKS</button>
-      <button class="ftab" data-filter="leak">DATA LEAKS</button>
-    </div>
   </div>
 
   <div class="content-area">
 
     <!-- FEATURED BREAKING CARD -->
-    <div class="featured-card reveal">
+    <a class="featured-card reveal" href="https://www.reuters.com/technology/cybersecurity/marks-spencer-cyber-attack-cost-300-million-pounds-ceo-says-2025-05-21/" target="_blank" rel="noopener" style="text-decoration:none;display:grid;">
       <div>
         <div class="breaking-tag">
           <div class="breaking-dot"></div>
           BREAKING — CRITICAL
         </div>
-        <div class="feat-title">Major cloud provider suffers AI agent credential hijack — 4.2M records exposed</div>
-        <div class="feat-meta">Apr 01, 2026 &nbsp;·&nbsp; <span>Reuters Technology</span> &nbsp;·&nbsp; Confirmed</div>
-        <p class="feat-body">Attackers used prompt injection embedded in seemingly legitimate task pages to redirect an enterprise AI agent's actions, exfiltrating OAuth tokens and user PII over 72 hours before detection. Security researchers confirmed this is the first large-scale AI agent supply-chain breach.</p>
+        <div class="feat-title">Marks &amp; Spencer cyber attack costs £300M as ransomware cripples UK retail giant</div>
+        <div class="feat-meta">May 21, 2025 &nbsp;·&nbsp; <span>Reuters Technology</span> &nbsp;·&nbsp; Confirmed</div>
+        <p class="feat-body">The iconic UK retailer disclosed losses exceeding £300 million after attackers used social engineering to reset service-desk credentials, deploying ransomware that suspended online orders and contactless payments for weeks. Market value fell by over £700M.</p>
       </div>
       <div class="feat-stats">
         <div class="fstat">
-          <div class="fstat-lbl">Records exposed</div>
-          <div class="fstat-val red">4.2M</div>
+          <div class="fstat-lbl">Market cap lost</div>
+          <div class="fstat-val red">£700M</div>
         </div>
         <div class="fstat">
-          <div class="fstat-lbl">Detection time</div>
-          <div class="fstat-val yellow">72h</div>
+          <div class="fstat-lbl">Weekly losses</div>
+          <div class="fstat-val yellow">£40M</div>
         </div>
         <div class="fstat">
           <div class="fstat-lbl">Attack vector</div>
-          <div class="fstat-val blue" style="font-size:22px;padding-top:4px">Prompt Injection</div>
+          <div class="fstat-val blue" style="font-size:22px;padding-top:4px">Social Engineering</div>
         </div>
         <div class="fstat">
-          <div class="fstat-lbl">Est. damage</div>
-          <div class="fstat-val orange">$340M</div>
+          <div class="fstat-lbl">Total damage</div>
+          <div class="fstat-val orange">£300M</div>
         </div>
       </div>
-    </div>
+    </a>
 
     <!-- BREACH VOLUME CHART -->
     <div class="chart-card reveal">
-      <div class="chart-lbl">Global Data Breach Volume — Past 12 Months (Millions of Records)</div>
+      <div class="chart-lbl">Global Data Breach Volume for the Past 12 Months (Millions of Records)</div>
       <div class="chart-wrap">
         <canvas id="breachChart"></canvas>
       </div>
@@ -536,108 +518,117 @@ footer {
       </div>
     </div>
 
-    <!-- NEWS GRID — ROW 1 -->
-    <div class="grid-label">Latest Intelligence</div>
+    <!-- NEWS GRID — CRITICAL -->
+    <div class="grid-label" style="margin-top:8px;">Critical Incidents</div>
     <div class="news-grid" id="newsGrid">
 
-      <div class="news-card reveal d1" data-cat="critical ai">
-        <div class="sev-badge critical"><div class="sev-dot"></div><div class="sev-label">CRITICAL</div></div>
-        <div class="nc-title">Healthcare AI assistant manipulated to harvest patient records</div>
-        <div class="nc-meta">Mar 28, 2026 &nbsp;·&nbsp; Dark Reading</div>
-        <div class="nc-desc">Attackers embedded invisible instructions in appointment booking pages. The AI agent silently forwarded medical records to attacker-controlled endpoints over 3 weeks.</div>
+      <a class="news-card reveal d1" data-cat="critical ai" href="https://www.darkreading.com/cyberattacks-data-breaches/rsac-2026-ai-dominates" target="_blank" rel="noopener" style="text-decoration:none;">
+        <div class="nc-title">RSAC 2026: AI-driven threats and geopolitical cyber risks dominate security summit</div>
+        <div class="nc-meta">Apr 03, 2026 &nbsp;·&nbsp; Dark Reading</div>
+        <div class="nc-desc">Global security leaders converged at RSAC 2026 highlighting how AI has shifted from defensive tool to primary attack vector, with nation-state actors accelerating autonomous offensive campaigns.</div>
         <div class="nc-footer">
-          <div class="nc-impact red">890K <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gray);letter-spacing:1px">records</span></div>
-          <div class="nc-sector">Healthcare</div>
+          <div class="nc-impact red">2026 <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gray);letter-spacing:1px">RSAC</span></div>
+          <div class="nc-sector">Intelligence</div>
         </div>
-      </div>
+      </a>
 
-      <div class="news-card reveal d2" data-cat="critical ai">
-        <div class="sev-badge critical"><div class="sev-dot"></div><div class="sev-label">CRITICAL</div></div>
-        <div class="nc-title">Financial services firm loses $62M to AI agent phishing chain</div>
-        <div class="nc-meta">Mar 25, 2026 &nbsp;·&nbsp; Bloomberg</div>
-        <div class="nc-desc">Crafted phishing pages with fake MFA prompts successfully captured credentials from an autonomous trading agent. Funds transferred within minutes of token theft.</div>
+      <a class="news-card reveal d2" data-cat="critical ai" href="https://www.bleepingcomputer.com/news/security/eu-certeu-attributes-european-commission-cloud-hack-to-teamPCP/" target="_blank" rel="noopener" style="text-decoration:none;">
+        <div class="nc-title">CERT-EU attributes European Commission cloud breach to TeamPCP threat group</div>
+        <div class="nc-meta">Mar 28, 2026 &nbsp;·&nbsp; BleepingComputer</div>
+        <div class="nc-desc">The EU's cybersecurity body confirmed TeamPCP breached European Commission cloud systems, with fallout reaching at least 29 other Union entities in a cascading supply-chain compromise.</div>
         <div class="nc-footer">
-          <div class="nc-impact orange">$62M <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gray);letter-spacing:1px">lost</span></div>
-          <div class="nc-sector">Finance</div>
-        </div>
-      </div>
-
-      <div class="news-card reveal d3" data-cat="high ai">
-        <div class="sev-badge high"><div class="sev-dot"></div><div class="sev-label">HIGH</div></div>
-        <div class="nc-title">Obfuscated Unicode attack bypasses LLM safety filters</div>
-        <div class="nc-meta">Mar 22, 2026 &nbsp;·&nbsp; The Hacker News</div>
-        <div class="nc-desc">Researchers demonstrate homoglyph substitution technique that fools tokenizers, causing AI agents to execute unauthorized commands while appearing to follow safety guidelines.</div>
-        <div class="nc-footer">
-          <div class="nc-impact yellow">14 <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gray);letter-spacing:1px">orgs affected</span></div>
-          <div class="nc-sector">Research</div>
-        </div>
-      </div>
-
-      <div class="news-card reveal d1" data-cat="high ai">
-        <div class="sev-badge high"><div class="sev-dot"></div><div class="sev-label">HIGH</div></div>
-        <div class="nc-title">E-commerce bots exploited via hidden DOM instruction injection</div>
-        <div class="nc-meta">Mar 19, 2026 &nbsp;·&nbsp; Wired</div>
-        <div class="nc-desc">A coordinated campaign injected hidden task-override instructions into product description fields, causing autonomous shopping agents to exfiltrate payment data.</div>
-        <div class="nc-footer">
-          <div class="nc-impact orange">220K <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gray);letter-spacing:1px">accounts</span></div>
-          <div class="nc-sector">E-Commerce</div>
-        </div>
-      </div>
-
-      <div class="news-card reveal d2" data-cat="leak">
-        <div class="sev-badge medium"><div class="sev-dot"></div><div class="sev-label">MEDIUM</div></div>
-        <div class="nc-title">EU mandates security audits for all deployed AI browser agents</div>
-        <div class="nc-meta">Mar 15, 2026 &nbsp;·&nbsp; Euractiv</div>
-        <div class="nc-desc">European Commission issues emergency directive requiring all organizations deploying web-browsing AI agents to undergo third-party security audits within 90 days.</div>
-        <div class="nc-footer">
-          <div class="nc-impact yellow">90 <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gray);letter-spacing:1px">day deadline</span></div>
-          <div class="nc-sector">Regulation</div>
-        </div>
-      </div>
-
-      <div class="news-card reveal d3" data-cat="high ai">
-        <div class="sev-badge high"><div class="sev-dot"></div><div class="sev-label">HIGH</div></div>
-        <div class="nc-title">Nation-state group targets AI research labs via agent supply chain</div>
-        <div class="nc-meta">Mar 12, 2026 &nbsp;·&nbsp; CyberScoop</div>
-        <div class="nc-desc">APT cluster attributed to state-sponsored actors compromised three AI research firms by injecting malicious instructions into public datasets used for agent fine-tuning.</div>
-        <div class="nc-footer">
-          <div class="nc-impact red">3 <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gray);letter-spacing:1px">labs breached</span></div>
-          <div class="nc-sector">Nation-State</div>
-        </div>
-      </div>
-
-      <div class="news-card reveal d1" data-cat="high leak">
-        <div class="sev-badge high"><div class="sev-dot"></div><div class="sev-label">HIGH</div></div>
-        <div class="nc-title">Government contractor exposes 18M citizen records via misconfigured agent pipeline</div>
-        <div class="nc-meta">Mar 09, 2026 &nbsp;·&nbsp; ProPublica</div>
-        <div class="nc-desc">An AI document-processing agent with excess permissions inadvertently indexed and exposed sensitive government records through a misconfigured API endpoint for 11 days.</div>
-        <div class="nc-footer">
-          <div class="nc-impact orange">18M <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gray);letter-spacing:1px">records</span></div>
+          <div class="nc-impact orange">29 <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gray);letter-spacing:1px">EU entities</span></div>
           <div class="nc-sector">Government</div>
         </div>
-      </div>
+      </a>
 
-      <div class="news-card reveal d2" data-cat="ai">
-        <div class="sev-badge medium"><div class="sev-dot"></div><div class="sev-label">MEDIUM</div></div>
-        <div class="nc-title">Researchers release open-source prompt injection detection benchmark</div>
-        <div class="nc-meta">Mar 05, 2026 &nbsp;·&nbsp; arXiv</div>
-        <div class="nc-desc">A team from Stanford releases PIBench-2026 covering 8,400 attack scenarios across 14 LLM families, establishing the first standardized evaluation framework for agentic security.</div>
+      <a class="news-card reveal d3" data-cat="critical leak" href="https://thehackernews.com/2026/03/openai-patches-chatgpt-data.html" target="_blank" rel="noopener" style="text-decoration:none;">
+        <div class="nc-title">OpenAI patches ChatGPT data exfiltration flaw exploiting hidden DNS covert channel</div>
+        <div class="nc-meta">Mar 2026 &nbsp;·&nbsp; The Hacker News</div>
+        <div class="nc-desc">A critical vulnerability allowed attackers to encode and exfiltrate sensitive data through DNS requests, bypassing AI guardrails entirely. The flaw also enabled remote shell access inside the Linux runtime.</div>
         <div class="nc-footer">
-          <div class="nc-impact yellow">8.4K <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gray);letter-spacing:1px">scenarios</span></div>
-          <div class="nc-sector">Research</div>
-        </div>
-      </div>
-
-      <div class="news-card reveal d3" data-cat="critical leak">
-        <div class="sev-badge critical"><div class="sev-dot"></div><div class="sev-label">CRITICAL</div></div>
-        <div class="nc-title">Zero-day in popular agent framework allows remote code execution via web content</div>
-        <div class="nc-meta">Mar 01, 2026 &nbsp;·&nbsp; BleepingComputer</div>
-        <div class="nc-desc">CVE-2026-1147 affects a widely-used autonomous agent framework. A crafted webpage can trigger RCE in the agent's execution sandbox, bypassing all existing sandboxing protections.</div>
-        <div class="nc-footer">
-          <div class="nc-impact red">CVE-2026-1147</div>
+          <div class="nc-impact red">CVE <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gray);letter-spacing:1px">Critical</span></div>
           <div class="nc-sector">Zero-Day</div>
         </div>
-      </div>
+      </a>
+
+    </div>
+
+    <!-- NEWS GRID — AI ATTACKS -->
+    <div class="grid-label" style="margin-top:32px;">AI Attacks</div>
+    <div class="news-grid">
+
+      <a class="news-card reveal d1" data-cat="high ai" href="https://thehackernews.com/2025/10/chatgpt-atlas-browser-can-be-tricked-by.html" target="_blank" rel="noopener" style="text-decoration:none;">
+        
+        <div class="nc-title">ChatGPT Atlas browser hijacked via URL-disguised prompt injection in omnibox</div>
+        <div class="nc-meta">Oct 2025 &nbsp;·&nbsp; The Hacker News</div>
+        <div class="nc-desc">Researchers demonstrated a technique disguising malicious instructions as a URL that Atlas treats as high-trust user intent, enabling harmful actions including data exfiltration and unauthorized command execution.</div>
+        <div class="nc-footer">
+          <div class="nc-impact yellow">CVSS <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gray);letter-spacing:1px">Critical</span></div>
+          <div class="nc-sector">Research</div>
+        </div>
+      </a>
+
+      <a class="news-card reveal d2" data-cat="high ai" href="https://thehackernews.com/2025/09/salesforce-patches-critical-forcedleak.html" target="_blank" rel="noopener" style="text-decoration:none;">
+        
+        <div class="nc-title">Salesforce Agentforce hit by ForcedLeak — critical CRM data exfiltration via prompt injection</div>
+        <div class="nc-meta">Sep 2025 &nbsp;·&nbsp; The Hacker News</div>
+        <div class="nc-desc">The ForcedLeak flaw (CVSS 9.4) in Salesforce Agentforce exploited Web-to-Lead submissions with malicious prompts, giving attackers unauthorized access to CRM records through indirect prompt injection.</div>
+        <div class="nc-footer">
+          <div class="nc-impact orange">9.4 <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gray);letter-spacing:1px">CVSS</span></div>
+          <div class="nc-sector">Enterprise SaaS</div>
+        </div>
+      </a>
+
+      <a class="news-card reveal d3" data-cat="high ai" href="https://thehackernews.com/2025/11/servicenow-ai-agents-can-be-tricked.html" target="_blank" rel="noopener" style="text-decoration:none;">
+        
+        <div class="nc-title">ServiceNow Now Assist agents weaponized via second-order prompt injection attacks</div>
+        <div class="nc-meta">Nov 2025 &nbsp;·&nbsp; The Hacker News</div>
+        <div class="nc-desc">Default configurations in ServiceNow's Now Assist platform allowed attackers to exploit agent-to-agent discovery, silently copying sensitive corporate data and escalating privileges without triggering detection.</div>
+        <div class="nc-footer">
+          <div class="nc-impact red">Silent <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gray);letter-spacing:1px">exfil</span></div>
+          <div class="nc-sector">Nation-State</div>
+        </div>
+      </a>
+
+    </div>
+
+    <!-- NEWS GRID — DATA LEAKS -->
+    <div class="grid-label" style="margin-top:32px;">Data Leaks</div>
+    <div class="news-grid">
+
+      <a class="news-card reveal d1" data-cat="high leak" href="https://www.cm-alliance.com/cybersecurity-blog/biggest-cyber-attacks-of-2025-their-impact-on-global-cybersecurity" target="_blank" rel="noopener" style="text-decoration:none;">
+       
+        <div class="nc-title">Change Healthcare breach confirmed as largest healthcare data compromise in US history</div>
+        <div class="nc-meta">Jul 2025 &nbsp;·&nbsp; CM-Alliance</div>
+        <div class="nc-desc">UnitedHealth confirmed 192.7 million individuals were affected by the ALPHV/BlackCat ransomware attack on Change Healthcare — representing roughly two-thirds of the entire US population.</div>
+        <div class="nc-footer">
+          <div class="nc-impact orange">192M <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gray);letter-spacing:1px">records</span></div>
+          <div class="nc-sector">Healthcare</div>
+        </div>
+      </a>
+
+      <a class="news-card reveal d2" data-cat="leak" href="https://www.weforum.org/publications/global-cybersecurity-outlook-2026/in-full/3-the-trends-reshaping-cybersecurity/" target="_blank" rel="noopener" style="text-decoration:none;">
+       
+        <div class="nc-title">WEF Global Cybersecurity Outlook 2026: GenAI data leaks overtake adversarial AI as top concern</div>
+        <div class="nc-meta">Jan 2026 &nbsp;·&nbsp; World Economic Forum</div>
+        <div class="nc-desc">The WEF's 2026 outlook marks a striking reversal: unintended data exposure through GenAI systems (34%) has overtaken adversarial capability advancement (29%) as the leading cybersecurity concern among executives worldwide.</div>
+        <div class="nc-footer">
+          <div class="nc-impact yellow">34% <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gray);letter-spacing:1px">top concern</span></div>
+          <div class="nc-sector">Regulation</div>
+        </div>
+      </a>
+
+      <a class="news-card reveal d3" data-cat="high leak" href="https://www.cybersecurity-insiders.com/ai-risk-and-readiness-report-2026/" target="_blank" rel="noopener" style="text-decoration:none;">
+       
+        <div class="nc-title">AI Risk &amp; Readiness Report 2026: 37% of firms hit by AI agent operational failures</div>
+        <div class="nc-meta">Mar 2026 &nbsp;·&nbsp; Cybersecurity Insiders</div>
+        <div class="nc-desc">A survey of 1,253 security professionals found 37% experienced AI agent-caused issues in the past year, with 8% severe enough to trigger outages or data corruption — including the EchoLeak zero-click exploit against Microsoft 365 Copilot.</div>
+        <div class="nc-footer">
+          <div class="nc-impact orange">37% <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gray);letter-spacing:1px">orgs hit</span></div>
+          <div class="nc-sector">Enterprise</div>
+        </div>
+      </a>
 
     </div><!-- /news-grid -->
 
