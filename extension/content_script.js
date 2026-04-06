@@ -52,9 +52,13 @@
     }
 
     #${PANEL_ID} header .brand img {
-      width: 18px;
-      height: 18px;
+      width: 22px;
+      height: 22px;
       object-fit: contain;
+      display: inline-block;
+      border-radius: 4px;
+      background: rgba(255, 107, 53, 0.08);
+      padding: 2px;
       filter: drop-shadow(0 0 6px rgba(255, 107, 53, 0.55));
     }
 
