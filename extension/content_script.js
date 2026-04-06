@@ -42,6 +42,22 @@
       background: #050505;
       position: relative;
     }
+
+    #${PANEL_ID} header .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    #${PANEL_ID} header .brand img {
+      width: 18px;
+      height: 18px;
+      object-fit: contain;
+      filter: drop-shadow(0 0 6px rgba(255, 107, 53, 0.55));
+    }
+
     #${PANEL_ID} header::after {
       content: '';
       position: absolute;
@@ -136,19 +152,88 @@
       text-shadow: 0 0 8px var(--sap-border-strong);
     }
 
-    #${PANEL_ID} pre {
-      margin: 0;
-      padding: 10px;
-      background: #000;
+    /* Output card (replaces terminal-like pre) */
+    #${PANEL_ID} .output {
       border: 1px solid #222;
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.55));
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+
+    #${PANEL_ID} .output-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 10px;
+      background: rgba(255, 107, 53, 0.06);
+      border-bottom: 1px solid rgba(255, 107, 53, 0.15);
+    }
+
+    #${PANEL_ID} .output-title {
+      font-size: 11px;
+      letter-spacing: .9px;
+      text-transform: uppercase;
+      font-weight: 900;
+      color: #ffd6c7;
+    }
+
+    #${PANEL_ID} .output-pill {
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 107, 53, 0.25);
+      color: var(--sap-accent);
+      background: rgba(0,0,0,0.35);
+    }
+
+    #${PANEL_ID} .output-body {
+      padding: 10px 10px;
+      max-height: 45vh;
+      overflow: auto;
+    }
+
+    #${PANEL_ID} .output-body p {
+      margin: 0 0 8px;
+      font-size: 12px;
+      line-height: 1.45;
+      color: #dedede;
       white-space: pre-wrap;
       word-break: break-word;
-      overflow: auto;
-      max-height: 45vh;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      font-size: 12px;
-      color: var(--sap-code);
     }
+
+    #${PANEL_ID} details.output-raw {
+      margin-top: 8px;
+      border-top: 1px dashed rgba(255,255,255,0.08);
+      padding-top: 8px;
+    }
+
+    #${PANEL_ID} details.output-raw summary {
+      cursor: pointer;
+      font-size: 11px;
+      color: var(--sap-muted);
+      user-select: none;
+    }
+
+    #${PANEL_ID} details.output-raw pre {
+      margin: 8px 0 0;
+      padding: 10px;
+      border-radius: 8px;
+      background: rgba(0,0,0,0.55);
+      border: 1px solid rgba(255,255,255,0.06);
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 11px;
+      color: #bfbfbf;
+    }
+
+    /* Hide old terminal block if still present */
+    #${PANEL_ID} pre#__sap_log { display: none !important; }
 
     #${PANEL_ID} .hint { font-size: 11px; color: var(--sap-muted); line-height: 1.35; }
     #${PANEL_ID} .minimized .body { display: none; }
@@ -159,7 +244,10 @@
   panel.id = PANEL_ID;
   panel.innerHTML = `
     <header>
-      <div class="title">Agent</div>
+      <div class="brand" id="__sap_brand" title="Open ORIX">
+        <img id="__sap_logo" alt="ORIX" />
+        <div class="title">ORIX</div>
+      </div>
       <div style="display:flex; gap:6px;">
         <button id="__sap_min">–</button>
         <button id="__sap_close">×</button>
@@ -177,6 +265,22 @@
         <button id="__sap_clear">Clear</button>
       </div>
       <div class="status" id="__sap_status">Idle</div>
+
+      <div class="output" id="__sap_output">
+        <div class="output-head">
+          <div class="output-title">Latest update</div>
+          <div class="output-pill" id="__sap_output_pill">Idle</div>
+        </div>
+        <div class="output-body">
+          <p id="__sap_output_text">Ready.</p>
+          <details class="output-raw">
+            <summary>Details (raw)</summary>
+            <pre id="__sap_output_raw">—</pre>
+          </details>
+        </div>
+      </div>
+
+      <!-- legacy raw log target (kept for compatibility; hidden via CSS) -->
       <pre id="__sap_log">—</pre>
     </div>
   `;
@@ -188,15 +292,66 @@
     minimized: false,
   };
 
+  // Set overlay logo (packaged icon)
+  try {
+    const logoEl = panel.querySelector('#__sap_logo');
+    if (logoEl) {
+      logoEl.src = chrome.runtime.getURL('icons/Gemini_Generated_Image_5ptf905ptf905ptf.png');
+      // In rare cases, CSP/image load can fail; remove the broken placeholder.
+      logoEl.addEventListener('error', () => {
+        logoEl.removeAttribute('src');
+        logoEl.style.display = 'none';
+      }, { once: true });
+    }
+  } catch {
+    // ignore
+  }
+
+  // Clicking the logo/title opens the locally served product page
+  panel.querySelector('#__sap_brand')?.addEventListener('click', () => {
+    // Use the same base as the agent API by default.
+    // If your UI is hosted elsewhere, set `window.__ORIX_UI_ORIGIN__` before this script runs.
+    const uiOrigin = (typeof window !== 'undefined' && window.__ORIX_UI_ORIGIN__)
+      ? String(window.__ORIX_UI_ORIGIN__)
+      : state.apiBaseUrl;
+
+    const url = uiOrigin.replace(/\/$/, '') + '/orix/final.html';
+    window.open(url, '_blank', 'noopener,noreferrer');
+  });
+
   function setStatus(s) {
     const el = panel.querySelector('#__sap_status');
     if (el) el.textContent = s;
+
+    const pill = panel.querySelector('#__sap_output_pill');
+    if (pill) pill.textContent = String(s || '');
   }
 
   function setLog(obj) {
-    const el = panel.querySelector('#__sap_log');
-    if (!el) return;
-    el.textContent = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
+    // Friendly display
+    const textEl = panel.querySelector('#__sap_output_text');
+    const rawEl = panel.querySelector('#__sap_output_raw');
+
+    const raw = (typeof obj === 'string') ? obj : JSON.stringify(obj, null, 2);
+
+    // Heuristic summary: show first meaningful lines without the debug tail.
+    const lines = String(raw).split(/\r?\n/);
+    const trimmed = [];
+    for (const line of lines) {
+      // Stop before noisy sections
+      if (/^Debug \(raw JSON\)/i.test(line)) break;
+      if (/^\s*\{\s*$/.test(line)) break;
+      trimmed.push(line);
+      if (trimmed.length >= 18) break;
+    }
+    const summary = trimmed.join('\n').trim() || 'Updated.';
+
+    if (textEl) textEl.textContent = summary;
+    if (rawEl) rawEl.textContent = raw;
+
+    // Legacy target (hidden) for any existing logic
+    const legacy = panel.querySelector('#__sap_log');
+    if (legacy) legacy.textContent = raw;
   }
 
   function formatAnalysisResult(apiData) {

@@ -29,21 +29,26 @@
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "16": "icons/icon16.png",
-      "48": "icons/icon48.png",
-      "128": "icons/icon128.png"
+      "16": "icons/Gemini_Generated_Image_5ptf905ptf905ptf.png",
+      "48": "icons/Gemini_Generated_Image_5ptf905ptf905ptf.png",
+      "128": "icons/Gemini_Generated_Image_5ptf905ptf905ptf.png"
     },
-    "default_title": "Secure Agent Firewall"
+    "default_title": "ORIX"
   },
   "icons": {
-    "16": "icons/icon16.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
+    "16": "icons/Gemini_Generated_Image_5ptf905ptf905ptf.png",
+    "48": "icons/Gemini_Generated_Image_5ptf905ptf905ptf.png",
+    "128": "icons/Gemini_Generated_Image_5ptf905ptf905ptf.png"
   },
 
   "web_accessible_resources": [
     {
-      "resources": ["dashboard.html", "dashboard.js"],
+      "resources": [
+        "dashboard.html",
+        "dashboard.js",
+        "final.html",
+        "icons/Gemini_Generated_Image_5ptf905ptf905ptf.png"
+      ],
       "matches": ["<all_urls>"]
     }
   ]
