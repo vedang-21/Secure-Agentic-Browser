@@ -11,6 +11,59 @@ from urllib.parse import urlparse
 
 DEFAULT_DB_PATH = Path(os.getenv("AGENT_MEMORY_DB", "agent_memory.db"))
 
+# Basic hardening limits (prevent DB pollution / runaway growth)
+MAX_URL_LEN = int(os.getenv("ORIX_MAX_URL_LEN", "2048"))
+MAX_TITLE_LEN = int(os.getenv("ORIX_MAX_TITLE_LEN", "256"))
+MAX_SUMMARY_LEN = int(os.getenv("ORIX_MAX_SUMMARY_LEN", "2000"))
+MAX_CONTENT_LEN = int(os.getenv("ORIX_MAX_CONTENT_LEN", "4000"))
+MAX_METADATA_JSON_LEN = int(os.getenv("ORIX_MAX_METADATA_JSON_LEN", "12000"))
+
+VALID_VERDICTS = {"ALLOW", "WARN", "BLOCK", "CONFIRM"}
+
+
+def _clip(s: Any, n: int) -> str:
+    try:
+        out = "" if s is None else str(s)
+    except Exception:
+        out = ""
+    if n > 0 and len(out) > n:
+        return out[:n]
+    return out
+
+
+def _clamp_float(x: Any, lo: float, hi: float, default: float = 0.0) -> float:
+    try:
+        v = float(x)
+    except Exception:
+        return default
+    if v < lo:
+        return lo
+    if v > hi:
+        return hi
+    return v
+
+
+def _safe_metadata(metadata: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    meta = dict(metadata or {})
+
+    # Normalize verdict
+    verdict = meta.get("verdict")
+    if verdict is not None:
+        v = str(verdict).upper().strip()
+        meta["verdict"] = v if v in VALID_VERDICTS else "ALLOW"
+
+    # Clamp risk score if present
+    if "risk_score" in meta:
+        meta["risk_score"] = _clamp_float(meta.get("risk_score"), 0.0, 1.0, default=0.0)
+
+    # Ensure JSON-serializable; fall back to string
+    try:
+        json.dumps(meta, ensure_ascii=False)
+    except Exception:
+        meta = {"_meta": _clip(meta, 2000)}
+
+    return meta
+
 
 @dataclass
 class MemoryItem:
@@ -127,7 +180,16 @@ class SQLiteMemoryStore:
         metadata: Optional[Dict[str, Any]] = None,
         ts: Optional[float] = None,
     ) -> int:
-        meta_json = json.dumps(metadata or {}, ensure_ascii=False)
+        # Basic sanitization / hardening
+        url_s = _clip(url or "", MAX_URL_LEN)
+        title_s = _clip(title or "", MAX_TITLE_LEN)
+        summary_s = _clip(summary or "", MAX_SUMMARY_LEN)
+        content_s = _clip(content or "", MAX_CONTENT_LEN)
+        meta = _safe_metadata(metadata)
+
+        meta_json = json.dumps(meta, ensure_ascii=False)
+        meta_json = _clip(meta_json, MAX_METADATA_JSON_LEN)
+
         now = float(ts if ts is not None else time.time())
         with self._connect() as con:
             cur = con.execute(
@@ -135,7 +197,7 @@ class SQLiteMemoryStore:
                 INSERT INTO memory_items (ts, kind, task_id, url, title, summary, content, metadata_json)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (now, kind, task_id, url or "", title or "", summary or "", content or "", meta_json),
+                (now, kind, task_id, url_s, title_s, summary_s, content_s, meta_json),
             )
             return int(cur.lastrowid)
 

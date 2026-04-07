@@ -380,22 +380,22 @@ footer {
       <div class="stat-card reveal d1">
         <div class="sc-label">Total Scans</div>
         <div class="sc-value" id="sv1">0</div>
-        <div class="sc-delta">↑ 2.3% today</div>
+        <div class="sc-delta">2.3% today</div>
       </div>
       <div class="stat-card reveal d2">
         <div class="sc-label">Threats Detected</div>
         <div class="sc-value" id="sv2">0</div>
-        <div class="sc-delta">↑ 142 this hour</div>
+        <div class="sc-delta">14.2% this hour</div>
       </div>
       <div class="stat-card reveal d3">
         <div class="sc-label">Blocked Attacks</div>
         <div class="sc-value" id="sv3">0</div>
-        <div class="sc-delta">↑ 89 this hour</div>
+        <div class="sc-delta">8.9% this hour</div>
       </div>
       <div class="stat-card reveal d4">
         <div class="sc-label">Avg Risk Score</div>
         <div class="sc-value" id="sv4">0</div>
-        <div class="sc-delta down">↓ 0.02 from avg</div>
+        <div class="sc-delta down">0.02% from avg</div>
       </div>
     </div>
  
@@ -635,15 +635,36 @@ function render(metrics) {
 
   // Logs table
   const body = document.getElementById('logsBody');
-  body.innerHTML = (metrics.logs || []).map(l => `
-    <tr>
-      <td class="td-ts">${l.ts}</td>
-      <td class="td-url">${l.url}</td>
-      <td class="td-risk ${riskClass(l.risk)}">${Number(l.risk).toFixed(2)}</td>
-      <td><span class="vpill ${l.verdict}">${l.verdict}</span></td>
-      <td class="td-explain">${l.explain}</td>
-    </tr>
-  `).join('');
+  body.innerHTML = '';
+
+  for (const l of (metrics.logs || [])) {
+    const tr = document.createElement('tr');
+
+    const tdTs = document.createElement('td');
+    tdTs.className = 'td-ts';
+    tdTs.textContent = l.ts;
+
+    const tdUrl = document.createElement('td');
+    tdUrl.className = 'td-url';
+    tdUrl.textContent = l.url;
+
+    const tdRisk = document.createElement('td');
+    tdRisk.className = `td-risk ${riskClass(l.risk)}`;
+    tdRisk.textContent = Number(l.risk).toFixed(2);
+
+    const tdVerdict = document.createElement('td');
+    const pill = document.createElement('span');
+    pill.className = `vpill ${l.verdict}`;
+    pill.textContent = l.verdict;
+    tdVerdict.appendChild(pill);
+
+    const tdExplain = document.createElement('td');
+    tdExplain.className = 'td-explain';
+    tdExplain.textContent = l.explain;
+
+    tr.append(tdTs, tdUrl, tdRisk, tdVerdict, tdExplain);
+    body.appendChild(tr);
+  }
 
   const cnt = document.querySelector('.lc-count');
   if (cnt) cnt.textContent = `${(metrics.logs || []).length} recent events`;
